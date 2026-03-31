@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Georgia', serif;
+    background: #f8f6f1;
+    color: #333;
+    line-height: 1.7;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+
+  .nameplate {
+    text-align: center;
+    border-top: 3px double #222;
+    border-bottom: 3px double #222;
+    padding: 10px 0;
+    margin-bottom: 2rem;
+  }
+
+  .nameplate h1 {
+    font-size: 28px;
+    font-weight: 400;
+    font-style: italic;
+    color: #1a1a1a;
+  }
+
+  .nameplate .edition {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    color: #999;
+    letter-spacing: 0.06em;
+    margin-top: 4px;
+  }
+
+  .forge-list {
+    list-style: none;
+  }
+
+  .forge-item {
+    border-bottom: 1px solid #ddd;
+    padding: 1.25rem 0;
+  }
+
+  .forge-item:last-child {
+    border-bottom: none;
+  }
+
+  .forge-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1.3;
+    margin-bottom: 4px;
+  }
+
+  .forge-name a {
+    color: #1a1a1a;
+    text-decoration: none;
+  }
+
+  .forge-name a:hover {
+    color: #8b4513;
+  }
+
+  .forge-meta {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #999;
+    margin-bottom: 6px;
+  }
+
+  .forge-desc {
+    font-size: 13px;
+    color: #555;
+  }
+
+  a { color: #8b4513; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  footer {
+    margin-top: 2rem;
+    padding-top: 0.75rem;
+    border-top: 3px double #222;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    color: #999;
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Personal State-of-the-Art Tracker</div>
+</div>
+
+<ul class="forge-list">
+  <!-- One forge-item per active forge. Update this list when forges are added/removed. -->
+  <li class="forge-item">
+    <div class="forge-meta">HIGH PRIORITY · PERMANENT</div>
+    <div class="forge-name"><a href="forges/agentic-coding/sparks/index.html">Agentic Coding</a></div>
+    <div class="forge-desc">Concrete techniques for shipping full-stack features with AI agents. Hooks, skills, scripts, loops — what actually works.</div>
+  </li>
+  <li class="forge-item">
+    <div class="forge-meta">HIGH PRIORITY · PERMANENT</div>
+    <div class="forge-name"><a href="forges/claude-code-ecosystem/sparks/index.html">Claude Code Ecosystem</a></div>
+    <div class="forge-desc">Claude Code capabilities, MCP integrations, power user patterns. Adjacent tools for comparison only.</div>
+  </li>
+  <li class="forge-item">
+    <div class="forge-meta">MEDIUM PRIORITY · TIME-BOXED</div>
+    <div class="forge-name"><a href="forges/system-design-patterns/sparks/index.html">System Design Patterns</a></div>
+    <div class="forge-desc">Distributed systems patterns for Principal Engineer interviews and real-world architecture decisions.</div>
+  </li>
+</ul>
+
+<footer>
+  The Radar · /radar:scan to update · /radar:forge to add
+</footer>
+
+</body>
+</html>
