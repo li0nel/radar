@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — ACP Protocol and ACPX Cross-Vendor Orchestration</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Orchestration &middot; March 31, 2026</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">Orchestration</div>
+  <div class="headline">ACP protocol and ACPX replace PTY scraping for cross-vendor agent orchestration</div>
+
+  <p>The fundamental problem with running multiple coding agents today is that they cannot talk to each other. You launch Claude Code in one terminal, Codex in another, Gemini CLI in a third, and they are islands. The only way to pass information between them is through you&mdash;copy-pasting output from one into the prompt of another, or through shared files on disk with no coordination protocol. Every team that has tried multi-agent development at scale has independently discovered that this is the bottleneck, not model quality or context windows or cost.</p>
+
+  <p>PTY scraping was the first attempt to solve this. Tools like <code>expect</code>, <code>script</code>, and custom Node wrappers would attach to the agent's terminal, parse the ANSI output stream, extract structured information from what is fundamentally unstructured text, and pipe it somewhere else. This works until it doesn't. Terminal output is a presentation format, not a data interchange format. Agents reformat their output, add color codes, insert progress spinners, wrap lines differently based on terminal width, and occasionally emit binary content that breaks parsers. Every agent update risks breaking the scraper. The approach is inherently fragile because it violates the abstraction boundary&mdash;you're reading the rendering layer instead of the semantic layer.</p>
+
+  <p>The Agent Communication Protocol (ACP) from Zed Industries is the first serious attempt to define a structured communication layer between coding agents. Important disambiguation: this is not BeeAI's Agent Communication Protocol, which was an earlier, now-deprecated effort focused on general-purpose agent interoperability. Zed's ACP is specifically designed for coding agents and is built on JSON-RPC 2.0 over stdio&mdash;the same transport mechanism that LSP uses. This is not a coincidence. The ACP designers explicitly modeled the protocol after LSP because it solved the same M&times;N integration problem: before LSP, every editor needed a custom integration for every language. Before ACP, every orchestrator needs a custom integration for every agent.</p>
+
+  <p>The protocol defines a small set of methods: <code>acp/initialize</code> for capability negotiation, <code>acp/execute</code> for sending tasks, <code>acp/status</code> for polling progress, <code>acp/result</code> for retrieving output, and <code>acp/cancel</code> for aborting. Each agent implements an ACP server (a thin wrapper around its existing CLI), and orchestrators connect to it as ACP clients. The capability negotiation step is critical&mdash;it lets the orchestrator discover what each agent can do (file editing, web search, code execution, etc.) and route tasks accordingly.</p>
+
+  <p>ACPX is the reference CLI implementation of an ACP orchestrator. Published by openclaw under MIT license on GitHub, it currently supports 15+ agents including Claude Code, Codex, Gemini CLI, Aider, Continue, Cursor Agent, Kiro, Windsurf, and several others. Installation is straightforward:</p>
+
+  <pre>npm install -g @openclaw/acpx</pre>
+
+  <p>Or if you prefer not to install globally:</p>
+
+  <pre>npx @openclaw/acpx init</pre>
+
+  <p>The <code>init</code> command creates a <code>.acpxrc.json</code> in your project root that declares which agents are available and how to launch them. A minimal configuration for Claude Code plus Codex looks like this:</p>
+
+  <pre>{
+  "agents": {
+    "claude": {
+      "command": "claude",
+      "args": ["--acp"],
+      "capabilities": ["edit", "search", "execute"],
+      "model": "claude-sonnet-4-20250514"
+    },
+    "codex": {
+      "command": "codex",
+      "args": ["--acp"],
+      "capabilities": ["edit", "search"],
+      "model": "o3"
+    }
+  },
+  "sessions": {
+    "persist": true,
+    "crashReconnect": true,
+    "timeout": 300
+  }
+}</pre>
+
+  <p>The <code>--acp</code> flag tells each agent to start in ACP server mode instead of interactive mode. In this mode, the agent listens on stdin for JSON-RPC messages and responds on stdout. No terminal UI, no ANSI codes, no interactive prompts&mdash;pure structured data.</p>
+
+  <p>Named sessions are one of ACPX's most practical features. When you start an orchestration session, ACPX assigns it a name (auto-generated or specified with <code>--session</code>) and persists the session state to <code>.acpx/sessions/</code>. If an agent crashes&mdash;which happens more often than vendors admit, especially under memory pressure from large codebases&mdash;ACPX detects the disconnection, relaunches the agent, re-initializes the ACP handshake, and replays enough context for the agent to resume. The <code>"crashReconnect": true</code> setting enables this. Without it, a single agent crash in a multi-agent workflow means manually restarting everything and figuring out where you left off.</p>
+
+  <p>Fire-and-forget mode (<code>acpx fire &lt;agent&gt; &lt;task&gt;</code>) is for tasks where you don't need to monitor progress interactively. You dispatch a task to an agent and ACPX logs the result to a session file. This is useful for parallelizing independent workstreams: fire off a test-writing task to one agent, a documentation task to another, and a refactoring task to a third. Check results when they complete. The alternative&mdash;sequentially waiting for each agent to finish before starting the next&mdash;wastes the time savings that multi-agent orchestration is supposed to provide.</p>
+
+  <p>The practical workflow with Claude Code as the primary agent and Codex or Gemini as secondary agents looks like this: you work interactively with Claude Code on the main feature branch. When you encounter an independent sub-task (writing tests for a module, updating documentation, refactoring a utility file that isn't touched by your current work), you dispatch it to a secondary agent via ACPX. Claude Code continues working on the main task while the secondary agent works in parallel. When the secondary agent completes, ACPX notifies you (or, if you've configured it, the notification arrives in cmux as a colored attention ring).</p>
+
+  <pre># Start interactive session with Claude as primary
+acpx session start --name feature-auth --primary claude
+
+# Dispatch parallel tasks to secondary agents
+acpx fire codex "Write unit tests for src/auth/oauth.ts \
+  covering all error paths. Output to tests/auth/oauth.test.ts"
+acpx fire gemini "Update API documentation in docs/auth.md \
+  to reflect the new OAuth flow in src/auth/oauth.ts"
+
+# Check status of all agents
+acpx status
+
+# Get results when done
+acpx result codex --session feature-auth</pre>
+
+  <p>Now, the political situation. Anthropic's position on ACP is complicated. GitHub issue #6686 on the Claude Code repository requested native ACP support. It accumulated 439 thumbs-up reactions, making it one of the most-requested features. Anthropic closed it. The official response cited concerns about protocol stability (ACP is still at version 0.3), security implications of inter-agent communication (an agent could be tricked into executing tasks from an untrusted source), and the preference for first-party orchestration via Agent Teams rather than third-party protocol adoption.</p>
+
+  <p>The community's workaround is <code>zed-industries/claude-agent-acp</code>, an adapter that wraps Claude Code's CLI in an ACP-compliant server. It intercepts Claude Code's stdout, parses the structured JSON that Claude Code already emits in <code>--output-format json</code> mode, and translates it into ACP responses. It's not as clean as native support would be&mdash;there's a translation layer that adds latency and occasionally loses metadata&mdash;but it works well enough for the common cases. Installation:</p>
+
+  <pre>npm install -g @zed-industries/claude-agent-acp
+
+# Then in .acpxrc.json, replace the claude agent entry:
+{
+  "agents": {
+    "claude": {
+      "command": "claude-agent-acp",
+      "args": ["--model", "claude-sonnet-4-20250514"],
+      "capabilities": ["edit", "search", "execute"]
+    }
+  }
+}</pre>
+
+  <p>The M&times;N problem that ACP solves is worth understanding precisely because it's the same problem LSP solved. Before LSP, if you had M editors and N languages, you needed M&times;N integrations (Vim+Python, Vim+Go, Emacs+Python, Emacs+Go, etc.). LSP reduced this to M+N: each editor implements one LSP client, each language implements one LSP server. ACP does the same for agent orchestration: if you have M orchestrators and N agents, ACP reduces the integration surface from M&times;N to M+N. Each orchestrator implements one ACP client, each agent implements one ACP server.</p>
+
+  <p>This matters more than it appears. Right now, the agent landscape is fragmenting. New agents ship monthly. Without a protocol, each new agent requires custom integration work in every orchestrator. With ACP, a new agent just needs to implement the ACP server interface and it's immediately usable by every ACP-compatible orchestrator. The network effect is the same one that made LSP successful&mdash;it took about three years from LSP's introduction for it to become the universal standard. ACP is at month eight.</p>
+
+  <p>Limitations to be aware of: ACP currently has no authentication mechanism, which means any process that can write to the agent's stdin can send it commands. In a multi-user environment, this is a security concern. The protocol has no built-in rate limiting, so a runaway orchestrator can flood an agent with requests. There's no standardized error taxonomy&mdash;agents can return arbitrary error codes, and orchestrators have to handle them case-by-case. And the capability negotiation, while useful, is self-reported by agents&mdash;there's no verification that an agent actually supports the capabilities it claims.</p>
+
+  <p>The spec is also silent on resource contention. If two orchestrators connect to the same agent instance, ACP doesn't define who wins. In practice, agents are single-tenant (one orchestrator per agent instance), and you launch separate agent instances for separate orchestration sessions. ACPX handles this automatically by managing the lifecycle of agent processes, but if you're building custom tooling on top of ACP, you need to manage this yourself.</p>
+
+  <p>Despite these limitations, ACP and ACPX represent the first viable path from single-agent workflows to cross-vendor multi-agent orchestration. The alternative is vendor lock-in to a single agent's proprietary multi-agent system (Anthropic's Agent Teams, which only orchestrates Claude Code instances) or continued reliance on PTY scraping and clipboard-based coordination. For teams that want to use the best agent for each task&mdash;Claude for architecture, Codex for test generation, Gemini for documentation&mdash;ACP is currently the only game in town.</p>
+
+  <p class="relevance">If you're running more than one coding agent regularly, ACPX is the first tool to evaluate. The named sessions and crash reconnect alone justify the setup time. Start with two agents (Claude + one other) and one fire-and-forget task per session to build intuition before attempting full multi-agent orchestration.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="agent-teams-coordination.html">Agent Teams' peer-to-peer messaging enables production coordination patterns</a></p>
+  <p style="text-indent: 0;"><a href="cmux-multi-agent-terminal.html">cmux provides the missing UI layer for multi-agent terminal workflows</a></p>
+  <p style="text-indent: 0;"><a href="orchestrator-transition.html">Addy Osmani's 8-level framework maps the conductor-to-orchestrator transition</a></p>
+  <p style="text-indent: 0;"><a href="swarm-diaries-lessons.html">Microsoft's Swarm Diaries document the failure modes of uncoordinated multi-agent development</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] casys.ai, "ACPX Multi-Agent Orchestration," casys.ai/blog/acpx-multi-agent-orchestration</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[2] openclaw/acpx, GitHub repository, MIT license, github.com/openclaw/acpx</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[3] Zed Industries, "Agent Communication Protocol Specification v0.3," acp.zed.dev/spec</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[4] Zed Blog, "Introducing ACP: A Protocol for Agent Interoperability," zed.dev/blog/acp</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[5] GitHub Issue #6686, "Native ACP support for Claude Code," github.com/anthropics/claude-code/issues/6686</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999;">The Radar</a> &middot; Agentic Coding &middot; March 31, 2026
+</footer>
+
+</body>
+</html>

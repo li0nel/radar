@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Model Router Hook Auto-Switches Tier by Task Complexity</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Model Router Hook &middot; March 31, 2026</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">Hooks &amp; Configuration</div>
+  <div class="headline">Model router hook auto-switches tier by task complexity with zero API calls</div>
+
+  <p>Claude Code's default behavior is to use whatever model you've configured for everything. Ask it to rename a variable, it uses Opus. Ask it to architect a distributed system, it uses Opus. Ask it to run <code>git status</code>, it uses Opus. This is wasteful in the precise, measurable sense: Haiku is 50x cheaper than Opus per token and responds 5x faster. For a <code>git status</code> invocation, you are paying Opus prices and waiting Opus latency for a task that Haiku handles identically. The model router hook by tzachbon (25 stars, MIT license) fixes this with two shell scripts and zero additional API calls.</p>
+
+  <p>The system consists of two hook scripts that operate at different lifecycle points. The first, <code>session-init.sh</code>, fires on <code>SessionStart</code> and injects model-tier routing rules into the session context. The second, <code>model-router-hook.sh</code>, fires on <code>UserPromptSubmit</code> and classifies each prompt against a three-tier model hierarchy. The classification is entirely local&mdash;regex matching and word counting in bash. No LLM call, no API request, no network dependency. The decision happens in single-digit milliseconds.</p>
+
+  <p>The three-tier hierarchy maps directly to Anthropic's model lineup: Haiku for mechanical tasks, Sonnet for standard development work, Opus for deep architectural reasoning. The insight is that most agentic coding sessions contain a mix of all three complexity levels, and the distribution is heavily skewed toward the low end. In a typical feature implementation session, roughly 60% of prompts are Haiku-tier (run this command, rename this, format that), 30% are Sonnet-tier (implement this function, fix this bug, write these tests), and 10% are Opus-tier (analyze this architecture, evaluate these tradeoffs, design this system). The model router captures that distribution and routes accordingly.</p>
+
+  <p>The classification engine uses three signal layers, evaluated in priority order. First, opus keywords: if the prompt contains words like "architect," "tradeoff," "trade-off," "deep dive," "system design," "evaluate alternatives," or "analyze the codebase," it routes to Opus. These are terms that signal open-ended reasoning tasks where model quality directly impacts output quality. Second, haiku patterns: regex-based matching for git commands (<code>git (status|log|diff|add|commit|push|pull|fetch|branch|checkout|merge|rebase|stash|tag)</code>), file renames, formatting requests, and other mechanical operations. Third, sonnet patterns: keywords like "build," "implement," "fix," "debug," "write," "create," "add feature," and "refactor." Anything that doesn't match an explicit pattern defaults to Sonnet&mdash;a sensible middle ground.</p>
+
+  <p>Word count acts as a secondary signal that overrides keyword matching in specific cases. Prompts longer than 200 words are routed to Opus regardless of keyword content, on the theory that lengthy prompts describe complex tasks even if they don't use architecture-specific terminology. A developer writing three paragraphs about a concurrency problem might never say "architect" but is clearly describing an Opus-tier task. Conversely, prompts shorter than 60 words that match a haiku pattern are confirmed as Haiku-tier. The thresholds are configurable in <code>.claude/model-router.json</code>:</p>
+
+  <pre>{
+  "thresholds": {
+    "opusWordCount": 200,
+    "haikuMaxWords": 60
+  },
+  "tiers": {
+    "opus": {
+      "keywords": ["architect", "tradeoff", "deep dive", "system design"],
+      "minWords": 200
+    },
+    "haiku": {
+      "patterns": ["^git\\s+(status|log|diff|add|commit)", "rename", "format"],
+      "maxWords": 60
+    },
+    "default": "sonnet"
+  }
+}</pre>
+
+  <p>The default behavior is warn-only mode. The hook classifies the prompt and outputs a message like <code>[model-router] Recommended tier: haiku (matched: git command pattern)</code>, but does not actually switch the model. This is the safe starting point&mdash;you observe the classifications for a few days, check whether they match your intuition, and tune the patterns. When you're satisfied, set <code>"action": "autoswitch"</code> in the configuration to enable automatic model switching. The hook's <code>UserPromptSubmit</code> handler returns a JSON response that sets the model for that specific invocation without changing the session-level default.</p>
+
+  <p>The tilde prefix (<code>~</code>) is the escape hatch. Prefixing any prompt with <code>~</code> bypasses the router entirely and uses whatever model is configured as the session default. This is for the cases where the router gets it wrong&mdash;when you type a short prompt that matches a haiku pattern but actually requires deep reasoning, or when you want Opus on a task the router would classify as Sonnet. The bypass is logged, so you can review bypassed prompts to identify patterns the router should learn.</p>
+
+  <p>The <code>session-init.sh</code> script is where the real leverage lives, and it's the feature that distinguishes this from a naive prompt classifier. On <code>SessionStart</code>, the script injects model-tier rules not just for the main session but for all sub-agents. This is critical because Claude Code spawns sub-agents for many operations&mdash;file search, code analysis, test execution&mdash;and by default, sub-agents inherit the session's model. Without the session-init injection, a sub-agent spawned to do a simple <code>Glob</code> search would use Opus. With it, the sub-agent receives instructions to use Haiku for mechanical tool operations and Sonnet for anything requiring judgment.</p>
+
+  <p>The sub-agent injection works by appending model-routing rules to the session's system context via the hook's <code>systemMessage</code> return field. The injected text reads approximately: "For sub-agent tasks: use haiku for file search, glob, grep, and read operations. Use haiku for git commands and simple file operations. Use sonnet for code analysis, implementation, and debugging. Use opus only when explicitly instructed or when the task involves architectural decisions across multiple systems." Claude respects these instructions because they arrive as system-level context, which has higher priority than user-level instructions in Claude's attention hierarchy.</p>
+
+  <p>This is where the cost savings compound. In a typical agentic coding session, the main Claude instance might process 20 user prompts. But those 20 prompts can spawn 200+ sub-agent invocations&mdash;searching for files, reading code, running tests, checking types. If each sub-agent invocation uses Opus, you're paying Opus rates for 200 operations where Haiku would produce identical results. The session-init injection routes those 200 operations to Haiku, and you pay Opus rates only for the 2-3 prompts that actually require architectural reasoning. The math works out to roughly a 70% cost reduction on a typical session, with no measurable quality degradation on any individual task.</p>
+
+  <p>Installation is available through the Claude Code plugin marketplace (search "model-router") or manually by cloning the repository and adding the hook definitions to your settings:</p>
+
+  <pre>{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "bash ~/.claude/hooks/model-router/session-init.sh"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "bash ~/.claude/hooks/model-router/model-router-hook.sh"
+      }
+    ]
+  }
+}</pre>
+
+  <p>Logging goes to <code>~/.claude/hooks/model-router-hook.log</code>. Each entry records the timestamp, the prompt (truncated to 100 characters), the matched pattern (if any), the word count, and the routing decision. This log is your primary debugging tool when the router makes a wrong call. Review it weekly for the first month, tune patterns, and adjust thresholds. After the initial tuning period, the router stabilizes and the log becomes a cost-auditing tool&mdash;you can calculate exactly how many tokens were routed to each tier and estimate the cost savings.</p>
+
+  <p>Limitations are real but bounded. The classifier is lexical, not semantic. A prompt like "can you quickly architect a rename script" contains both the opus keyword "architect" and the haiku keyword "rename." The priority order (opus > haiku > sonnet) means this routes to Opus, which is arguably wrong for what's actually a simple scripting task. The word count heuristic helps in some cases but not all. For teams with specialized vocabularies&mdash;a database team where "schema" is a common word in mechanical operations, not just architectural ones&mdash;the default keyword lists will need customization.</p>
+
+  <p>The router also cannot classify based on codebase context. A prompt like "fix the bug" might be Haiku-tier (typo fix) or Opus-tier (concurrency race condition) depending on what "the bug" is, and the router has no way to know. It classifies based solely on the prompt text, not on the files Claude is looking at, the conversation history, or the nature of recent errors. A more sophisticated version could incorporate tool-use history (if the last 10 tool invocations were all in the same file, the task is probably focused and Sonnet-appropriate; if they spanned 30 files, it's probably architectural and Opus-appropriate), but that's future work.</p>
+
+  <p>Despite these limitations, the model router represents a pragmatic approach to one of the real cost problems in agentic coding: the mismatch between task complexity and model capability. You don't need a perfect classifier. You need one that's right 80% of the time and has an escape hatch for the other 20%. At 70% cost reduction for zero quality loss on correctly-routed tasks, the ROI is immediate.</p>
+
+  <p class="relevance">Install in warn-only mode first and run it for a week before enabling autoswitch. Review the log at ~/.claude/hooks/model-router-hook.log to verify classifications match your expectations. The sub-agent injection via session-init.sh delivers most of the cost savings&mdash;even if you never enable autoswitch on user prompts, the sub-agent routing alone is worth the setup.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="seventeen-lifecycle-hooks.html">Claude Code exposes 17 lifecycle events &mdash; the newer ones unlock Agent Teams and automated onboarding</a></p>
+  <p style="text-indent: 0;"><a href="skill-activation-hooks.html">Skill activation hooks guarantee skill loading by injecting context before Claude processes the prompt</a></p>
+  <p style="text-indent: 0;"><a href="async-hooks-patterns.html">Async hooks enable non-blocking side effects without slowing the agent loop</a></p>
+  <p style="text-indent: 0;"><a href="http-hooks-remote.html">HTTP hooks open Claude Code to remote validation services and team-wide policies</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] tzachbon, "claude-model-router-hook," github.com/tzachbon/claude-model-router-hook (MIT license, 25 stars)</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999;">The Radar</a> &middot; Agentic Coding &middot; March 31, 2026
+</footer>
+
+</body>
+</html>

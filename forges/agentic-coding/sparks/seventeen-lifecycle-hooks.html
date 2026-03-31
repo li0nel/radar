@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Claude Code Exposes 17 Lifecycle Events</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Lifecycle Events &middot; March 31, 2026</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">Hooks &amp; Configuration</div>
+  <div class="headline">Claude Code exposes 17 lifecycle events &mdash; the newer ones unlock Agent Teams and automated onboarding</div>
+
+  <p>The hook system started with five events: <code>PreToolUse</code>, <code>PostToolUse</code>, <code>Notification</code>, <code>Stop</code>, and <code>UserPromptSubmit</code>. That covered the basics&mdash;intercept before a tool runs, react after it runs, catch notifications, handle session end, process incoming prompts. Over the past four months, the event surface has expanded to 17 events, and the newer additions reveal where Claude Code is heading architecturally. The full list as of March 2026: <code>SessionStart</code>, <code>UserPromptSubmit</code>, <code>PreToolUse</code>, <code>PermissionRequest</code>, <code>PostToolUse</code>, <code>PostToolUseFailure</code>, <code>SubagentStart</code>, <code>SubagentStop</code>, <code>Stop</code>, <code>PreCompact</code>, <code>Setup</code>, <code>SessionEnd</code>, <code>Notification</code>, <code>TeammateIdle</code>, <code>TaskCompleted</code>, <code>ConfigChange</code>, <code>WorktreeCreate</code>, and <code>WorktreeRemove</code>.</p>
+
+  <p>These fall into four generations. The original five (PreToolUse, PostToolUse, Notification, Stop, UserPromptSubmit) are the tool-lifecycle hooks&mdash;they let you intercept and react to Claude's tool usage. The session-lifecycle additions (SessionStart, SessionEnd, PreCompact, PermissionRequest, PostToolUseFailure, Setup) expanded coverage to session boundaries, context management, and error handling. The sub-agent hooks (SubagentStart, SubagentStop) arrived with Claude Code's internal sub-agent architecture. And the newest five (TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove) are the Agent Teams hooks, designed for multi-instance coordination.</p>
+
+  <p>The five Agent Teams events deserve detailed attention because they're the least documented and the most architecturally significant.</p>
+
+  <p><code>TeammateIdle</code> fires when a teammate instance in an Agent Teams configuration has no assigned work. The event payload includes the teammate's ID, its current worktree, the last task it completed, and its idle duration. This is the scheduling hook&mdash;it's how you implement work-stealing, load balancing, and dynamic task assignment. Without this event, an idle teammate just sits there consuming resources until a human notices and assigns it something. With a <code>TeammateIdle</code> hook, you can automatically pull the next task from a queue, assign review work for code another teammate just wrote, or trigger the teammate to run tests on recent changes. The hook response can include a task assignment that the idle teammate picks up immediately.</p>
+
+  <pre>{
+  "event": "TeammateIdle",
+  "teammate": {
+    "id": "teammate-3",
+    "worktree": "/project/.worktrees/feature-auth",
+    "lastTask": "Implement OAuth token refresh",
+    "idleSince": "2026-03-31T14:22:00Z",
+    "idleDuration": 45
+  }
+}</pre>
+
+  <p>A practical <code>TeammateIdle</code> hook checks a task queue (a JSON file, a Redis list, a GitHub Projects board via API) and returns a task assignment. If the queue is empty, it can assign housekeeping work: run the test suite, check for type errors, lint recently changed files, update documentation for files modified in the last hour. The teammate stays productive instead of idle.</p>
+
+  <p><code>TaskCompleted</code> fires when any teammate finishes a task. The payload includes the teammate ID, the task description, the outcome (success, failure, partial), a summary of changes made, and the list of files modified. This is the coordination event&mdash;it lets other teammates react to completed work. A <code>TaskCompleted</code> hook can trigger code review by another teammate, run integration tests that depend on the completed work, update a shared progress tracker, or notify downstream teammates that a dependency is resolved. In a multi-teammate setup where teammate A implements a module and teammate B writes tests for it, a <code>TaskCompleted</code> hook on A's completion can automatically assign the testing task to the next idle teammate.</p>
+
+  <p><code>ConfigChange</code> fires when Claude Code's settings are modified during a session. This includes changes to permissions, model selection, MCP server configuration, and hook definitions. The payload contains the setting path, old value, new value, and source (user action, managed policy update, or programmatic change). The primary use case is audit logging&mdash;tracking who changed what and when in a team environment. A secondary use case is reactive configuration: if someone disables a security-critical hook, a <code>ConfigChange</code> hook (defined at a higher priority level, like managed policy) can detect this and re-enable it, or alert an admin, or force-terminate the session. This is the self-healing configuration pattern&mdash;the configuration monitors itself.</p>
+
+  <p><code>WorktreeCreate</code> and <code>WorktreeRemove</code> fire when Agent Teams creates or removes git worktrees for teammate instances. Each teammate in an Agent Teams setup operates in its own worktree to prevent file conflicts&mdash;teammate A editing <code>src/auth.ts</code> in one worktree while teammate B edits <code>src/db.ts</code> in another. The <code>WorktreeCreate</code> hook fires after the worktree is set up and before the teammate starts working. This is the initialization hook for per-teammate environments: install dependencies in the new worktree, set up local configuration, warm caches, verify the build system works. <code>WorktreeRemove</code> fires before cleanup, giving you a chance to archive logs, capture metrics, or backup any unsaved state from the worktree.</p>
+
+  <pre># WorktreeCreate hook - initialize new teammate worktree
+#!/bin/bash
+EVENT=$(cat -)
+WORKTREE=$(echo "$EVENT" | jq -r '.worktree.path')
+TEAMMATE=$(echo "$EVENT" | jq -r '.worktree.teammate')
+
+# Install dependencies in the new worktree
+cd "$WORKTREE" && npm install --silent 2>/dev/null
+
+# Copy local env config
+cp ~/.claude/team-env/.env.local "$WORKTREE/.env.local" 2>/dev/null
+
+# Log
+echo "$(date) Initialized worktree for $TEAMMATE at $WORKTREE" \
+  >> ~/.claude/hooks/worktree.log</pre>
+
+  <p>The <code>Setup</code> event is separate from the Agent Teams hooks but equally important for team-scale operations. It triggers when a developer runs <code>claude --init</code> or <code>claude --maintenance</code>. This is the automated onboarding hook&mdash;when a new developer joins the team and initializes Claude Code for the first time, the <code>Setup</code> hook runs and performs all the first-time configuration that would otherwise be a checklist in a wiki: install project dependencies, verify required tools are present (correct Node version, required CLI tools, docker running), configure MCP servers for the project, copy team-standard hook scripts into place, validate API key permissions, and generate a local configuration file from a template.</p>
+
+  <p>The power move with <code>Setup</code> hooks is combining them with Claude's agentic capabilities. The command <code>claude --init "/install"</code> triggers two things in sequence: first, the <code>Setup</code> hook runs (deterministic, infrastructure-level), and then the <code>/install</code> command executes (agentic, LLM-driven). The hook handles the mechanical setup that must be correct&mdash;installing the right dependency versions, configuring environment variables, setting file permissions. The <code>/install</code> agentic phase handles the judgment-requiring setup&mdash;analyzing the codebase to determine what MCP servers would be useful, reading the README to understand build procedures, identifying project-specific configuration that the hook template doesn't cover. Deterministic first, agentic second. This ordering is deliberate: the agentic phase can assume a correctly-configured environment because the deterministic phase already ensured it.</p>
+
+  <p>The four handler types available for all 17 events form a capability hierarchy. <strong>Command handlers</strong> run a shell command, receive the event on stdin, and communicate via exit codes and stdout. Fast, simple, limited to what shell scripts can do. <strong>HTTP handlers</strong> POST the event JSON to a URL and interpret the response. Good for centralized services, constrained by network latency. <strong>Prompt handlers</strong> send the event to an LLM for evaluation&mdash;the LLM reads the event payload and returns a judgment. This is useful for nuanced decisions that can't be expressed as regex or conditionals, but adds LLM latency and cost to every event. <strong>Agent handlers</strong> are the most powerful: they spawn a sub-agent with full tool access (Read, Grep, Glob, Bash) that can examine the codebase before making a decision.</p>
+
+  <p>Agent-type handlers are transformative for <code>Stop</code> and <code>SubagentStop</code> events. A command-type <code>Stop</code> hook can check whether the last tool invocation succeeded. An agent-type <code>Stop</code> hook can read the files that were modified, grep for common error patterns, run the test suite, check for uncommitted changes, verify that the code compiles, and <em>then</em> decide whether to allow the session to end or inject a message telling Claude to keep working. This turns the <code>Stop</code> event from a simple checkpoint into a quality gate. The agent examines the work product and decides whether it meets the bar.</p>
+
+  <pre>{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "agent",
+        "prompt": "Review the changes made in this session. Check that all modified files compile, that no TODO comments were left unresolved, that test files exist for new modules, and that no debugging code (console.log, debugger statements) remains. If any issues are found, return a message asking Claude to fix them before stopping.",
+        "tools": ["Read", "Grep", "Glob", "Bash"]
+      }
+    ]
+  }
+}</pre>
+
+  <p>The cost of agent-type handlers is real: each invocation is a full LLM inference with tool use, potentially taking 10-30 seconds and consuming thousands of tokens. Use them only on low-frequency events (<code>Stop</code>, <code>SubagentStop</code>, <code>SessionEnd</code>) where the quality gate justifies the latency. On high-frequency events like <code>PostToolUse</code>, an agent handler would make Claude unusably slow.</p>
+
+  <p>Configuration priority determines which hooks actually fire when multiple sources define hooks for the same event. The hierarchy, from highest to lowest priority: managed policy (set by organization admins, cannot be overridden), project shared (<code>.claude/settings.json</code> in the repo, visible to all developers), project personal (<code>.claude/settings.local.json</code>, gitignored, per-developer), and user global (<code>~/.claude/settings.json</code>, applies to all projects). Hooks at all levels fire&mdash;this is additive, not overriding. A managed policy hook on <code>PreToolUse</code> runs alongside a project-level hook on <code>PreToolUse</code>. But if they conflict (one allows, one blocks), the higher-priority source wins. Managed policy blocking cannot be overridden by any lower-priority hook.</p>
+
+  <p>This priority system is what makes Claude Code viable for enterprise use. The security team defines managed policy hooks that enforce organizational requirements: no credentials in code, no force-push to main, no execution of unvetted scripts, audit logging of all tool invocations. Individual teams add project-level hooks for their specific workflows: testing conventions, formatting rules, documentation requirements. Individual developers add personal hooks for their preferences: desktop notifications, custom keybindings, experimental features. Each layer adds value without being able to undermine the layers above it.</p>
+
+  <p>The 17 events together form a complete observability and control surface for the agentic coding lifecycle. From session initialization through prompt processing, tool execution, permission management, sub-agent coordination, context compaction, teammate scheduling, worktree management, configuration changes, and session termination&mdash;every phase is hookable. The question is no longer "can I hook into this?" but "what should I do with the hook?" The answer depends on your scale: solo developers need 2-3 hooks (PreToolUse for safety, Stop for verification, PreCompact for backup). Teams need 5-8 (add PostToolUse formatting, UserPromptSubmit skill activation, Setup for onboarding). Organizations running Agent Teams need 10+ (add the teammate coordination events, ConfigChange auditing, WorktreeCreate initialization).</p>
+
+  <p class="relevance">Start with SessionStart, PreToolUse, Stop, and PreCompact as your base four hooks. These cover initialization, safety, completion verification, and context preservation. Add the Agent Teams events only when you're actually running multi-teammate workflows&mdash;hooking events that never fire is harmless but creates configuration noise. The Setup hook is the highest-ROI addition for any team with more than three developers; it eliminates onboarding friction completely.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="http-hooks-remote.html">HTTP hooks open Claude Code to remote validation services and team-wide policies</a></p>
+  <p style="text-indent: 0;"><a href="async-hooks-patterns.html">Async hooks enable non-blocking side effects without slowing the agent loop</a></p>
+  <p style="text-indent: 0;"><a href="skill-activation-hooks.html">Skill activation hooks guarantee skill loading by injecting context before Claude processes the prompt</a></p>
+  <p style="text-indent: 0;"><a href="model-router-hook.html">Model router hook auto-switches tier by task complexity with zero API calls</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] claudefa.st, "Hooks Guide," claudefa.st/hooks</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[2] Aedelon, "claude-code-blueprint," github.com/Aedelon/claude-code-blueprint (17 lifecycle events reference)</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999;">The Radar</a> &middot; Agentic Coding &middot; March 31, 2026
+</footer>
+
+</body>
+</html>

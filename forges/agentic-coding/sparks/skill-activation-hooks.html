@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Skill Activation Hooks Guarantee Skill Loading</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Skill Activation &middot; March 31, 2026</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">Hooks &amp; Configuration</div>
+  <div class="headline">Skill activation hooks guarantee skill loading by injecting context before Claude processes the prompt</div>
+
+  <p>Skills are instructions. They live in markdown files. Claude reads them when it decides they're relevant. That last part&mdash;"when it decides"&mdash;is the problem. Claude's skill discovery is probabilistic. It depends on the model's interpretation of the prompt, the current context window contents, and whatever attention patterns happen to activate. A developer types "write tests for the auth module" and expects Claude to load the team's testing skill that specifies the test framework, directory conventions, and mocking patterns. Sometimes Claude loads it. Sometimes it doesn't. The inconsistency is the issue. In a workflow where skill compliance matters&mdash;CI will fail if tests don't follow the team's patterns&mdash;probabilistic skill loading is a reliability bug.</p>
+
+  <p>The fix is a <code>UserPromptSubmit</code> hook that fires on every prompt, deterministically matches keywords against a skill catalog, and injects the matched skill as system-level context that Claude must process before generating a response. This is not a suggestion to Claude. It's an injection into the system context, which Claude treats with higher priority than user-level instructions. The hook converts skill activation from "Claude might load this" to "Claude will see this, every time, guaranteed."</p>
+
+  <p>The mechanism works through the hook response's <code>hookSpecificOutput</code> field, specifically the <code>additionalContext</code> sub-field. When a <code>UserPromptSubmit</code> hook returns JSON with this structure, Claude Code prepends the content to the system context for that turn:</p>
+
+  <pre>{
+  "hookSpecificOutput": {
+    "additionalContext": "## Active Skill: Testing\n\nAll tests must use Vitest. Place test files adjacent to source files with .test.ts suffix. Use the factory pattern from tests/factories/ for test data. Mock external services using msw, never jest.mock()."
+  }
+}</pre>
+
+  <p>Claude receives this context before it processes the user's prompt. The skill instructions are present in the system context alongside Claude's own system prompt, CLAUDE.md contents, and any other system-level injections. The result is that Claude follows the testing skill's instructions not because it chose to load the skill, but because the instructions are already in its context by the time it starts thinking about the prompt.</p>
+
+  <p>The ClaudeFast Code Kit implements this pattern against 21 skill categories, covering the full lifecycle of agentic coding: testing, documentation, git workflows, code review, refactoring, architecture, debugging, deployment, database migrations, API design, performance optimization, security review, accessibility, internationalization, monitoring, infrastructure, dependency management, CI/CD, feature flags, data modeling, and error handling. Each category has a keyword set and a corresponding skill file. The hook script is a bash function that reads the prompt from stdin, tokenizes it, matches tokens against keyword sets, and returns the union of all matched skills.</p>
+
+  <p>The keyword matching is intentionally simple. For the testing skill: "test," "tests," "testing," "spec," "specs," "unit test," "integration test," "e2e," "coverage," "mock," "fixture," "vitest," "jest," "playwright." For the documentation skill: "doc," "docs," "document," "documentation," "readme," "jsdoc," "typedoc," "comment," "comments." For the git workflow skill: "commit," "branch," "merge," "rebase," "pr," "pull request," "cherry-pick," "release." The matching is case-insensitive, whole-word, and uses bash's <code>=~</code> regex operator. No NLP, no embeddings, no LLM classification. Pattern matching in bash runs in under 1ms for 21 categories.</p>
+
+  <p>The simplicity is the point. Every layer of sophistication you add to the keyword matching is a layer that can break, a layer that adds latency, and a layer that makes the behavior harder to predict. A developer who types "write tests" can look at the keyword list and know with certainty that the testing skill will activate. If the matching used semantic similarity or an LLM classifier, the developer couldn't predict activation without running the classifier mentally. Predictability is a feature, not a limitation.</p>
+
+  <p>A minimal implementation looks like this:</p>
+
+  <pre>#!/bin/bash
+# skill-activation-hook.sh - UserPromptSubmit handler
+EVENT=$(cat -)
+PROMPT=$(echo "$EVENT" | jq -r '.prompt' | tr '[:upper:]' '[:lower:]')
+
+SKILLS=""
+
+# Testing skill
+if echo "$PROMPT" | grep -qwE '(test|tests|testing|spec|specs|coverage|mock|vitest|jest)'; then
+  SKILLS="${SKILLS}\n$(cat ~/.claude/skills/testing.md)"
+fi
+
+# Documentation skill
+if echo "$PROMPT" | grep -qwE '(doc|docs|documentation|readme|jsdoc|comment)'; then
+  SKILLS="${SKILLS}\n$(cat ~/.claude/skills/documentation.md)"
+fi
+
+# Git workflow skill
+if echo "$PROMPT" | grep -qwE '(commit|branch|merge|rebase|pr|pull.request|release)'; then
+  SKILLS="${SKILLS}\n$(cat ~/.claude/skills/git-workflow.md)"
+fi
+
+# Add more categories as needed...
+
+if [ -n "$SKILLS" ]; then
+  # Escape for JSON
+  ESCAPED=$(echo -e "$SKILLS" | jq -Rs .)
+  echo "{\"hookSpecificOutput\":{\"additionalContext\":${ESCAPED}}}"
+fi</pre>
+
+  <p>The hook configuration in <code>.claude/settings.json</code>:</p>
+
+  <pre>{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "bash ~/.claude/hooks/skill-activation-hook.sh"
+      }
+    ]
+  }
+}</pre>
+
+  <p>This hook must be synchronous. It cannot be async because Claude needs to see the <code>additionalContext</code> before processing the prompt. If it were async, the skill content would arrive after Claude has already started generating a response, defeating the entire purpose.</p>
+
+  <p>The comparison between prompt-level and hook-based skill activation reveals the architectural difference. Prompt-level activation relies on Claude's attention mechanism. The user types a prompt, Claude's system prompt says "you have access to these skills," and Claude decides whether to load any of them. This is probabilistic&mdash;the decision depends on attention weights, context window position, and the specific phrasing of the prompt. A prompt that says "write unit tests for auth" might activate the testing skill. The same request phrased as "add spec coverage for the authentication module" might not, if Claude's attention doesn't connect "spec coverage" with the testing skill's activation criteria. The connection exists semantically, but the model doesn't always make it.</p>
+
+  <p>Hook-based activation is deterministic at the infrastructure level. The hook runs before Claude sees the prompt. The keyword matching is a defined algorithm with defined inputs and defined outputs. "spec" is in the testing skill's keyword list, so "add spec coverage" activates the testing skill, period. No attention mechanism involved, no model interpretation, no probabilistic behavior. The skill content appears in the system context as if it were always there.</p>
+
+  <p>The tradeoff is false positives. A prompt like "the test environment variable is set wrong" contains the word "test" and will activate the testing skill, even though the developer is asking about environment configuration, not writing tests. The testing skill's instructions will appear in Claude's context, consuming tokens and potentially biasing Claude's response toward testing-related solutions. In practice, this is a minor issue&mdash;the skill instructions are clearly labeled ("## Active Skill: Testing") and Claude can distinguish between context that's relevant and context that was injected but isn't applicable. The token cost is the real overhead: each skill injection is typically 200-500 tokens, and on a prompt that activates three skills, you're spending 600-1500 tokens on context that might not be relevant.</p>
+
+  <p>The false-negative rate matters more. A prompt like "make sure the OAuth flow handles edge cases properly" should probably activate both the testing skill and the security review skill, but the keyword matching might only catch "OAuth" (if it's in the security review keyword list) and miss the testing implication. The cost of a false negative is higher than a false positive: a false positive wastes tokens, a false negative means Claude works without the skill's guidance and potentially produces non-compliant output.</p>
+
+  <p>To minimize false negatives, err on the side of broader keyword sets. Include abbreviations, synonyms, and domain-specific terms. For a team that uses "specs" instead of "tests," add "specs" to the testing keyword list. For a team that calls PRs "merge requests," add "merge request" to the git workflow keyword list. The keyword list should reflect your team's actual vocabulary, not a generic developer vocabulary. Review the hook's activation log weekly and add any terms that should have triggered a skill but didn't.</p>
+
+  <p>Multi-skill activation is handled by concatenation. If a prompt matches three skills, all three skill files are concatenated and injected as a single <code>additionalContext</code> block. This can get large&mdash;three skills at 400 tokens each is 1200 tokens of system context per prompt. For teams with many skills, consider implementing a priority system: rank skills by relevance to the prompt, inject the top 3 or 5, and include a brief mention of other activated skills without their full content. The ClaudeFast implementation uses a tiered approach: primary skills (full content) and secondary skills (one-line summary with a note that Claude can request the full content if needed).</p>
+
+  <p>There is an important interaction with context compaction. Skill injections via <code>additionalContext</code> are per-turn, not persistent. After context compaction, the skill context from previous turns is gone. If the developer's next prompt after compaction doesn't re-trigger the same skill keywords, Claude loses the skill context. This is usually fine&mdash;if the next prompt doesn't mention testing, Claude probably doesn't need the testing skill. But for long-running tasks where the developer says "continue" or "keep going" without repeating the original keywords, the skill context disappears. The workaround is to add general continuation keywords ("continue," "keep going," "next") to all active skill triggers, re-injecting whatever skills were active on the previous prompt. This requires the hook to maintain minimal state&mdash;a file that records the last prompt's active skills.</p>
+
+  <p>The speed constraint is worth emphasizing. This hook runs on every single user prompt. If it takes 50ms, that's 50ms of latency before Claude starts processing every prompt. Bash keyword matching against 21 categories takes 2-5ms on modern hardware. Reading 21 skill files from disk (if all match) takes 1-2ms with warm filesystem cache. The total overhead is negligible. But if you're tempted to add an LLM call for semantic matching, or a database query for skill lookup, or an HTTP request to a skill registry&mdash;don't. The latency will be noticeable on every prompt, and the reliability of a network dependency on every prompt is unacceptable. Keep the matching local, fast, and deterministic.</p>
+
+  <p class="relevance">Start with 3-5 skills that your team's CI actually enforces: testing conventions, commit message format, code style rules. Hook-based activation guarantees Claude follows these patterns on every relevant prompt, eliminating the CI failure loop where Claude generates non-compliant code and the developer has to re-prompt. Expand the skill catalog based on which CI checks fail most frequently.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="seventeen-lifecycle-hooks.html">Claude Code exposes 17 lifecycle events &mdash; the newer ones unlock Agent Teams and automated onboarding</a></p>
+  <p style="text-indent: 0;"><a href="model-router-hook.html">Model router hook auto-switches tier by task complexity with zero API calls</a></p>
+  <p style="text-indent: 0;"><a href="async-hooks-patterns.html">Async hooks enable non-blocking side effects without slowing the agent loop</a></p>
+  <p style="text-indent: 0;"><a href="http-hooks-remote.html">HTTP hooks open Claude Code to remote validation services and team-wide policies</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] claudefa.st, "Skill Activation Hook Guide," claudefa.st/skill-activation-hooks</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999;">The Radar</a> &middot; Agentic Coding &middot; March 31, 2026
+</footer>
+
+</body>
+</html>

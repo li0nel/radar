@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — StatusLine Context Backup</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; StatusLine Context Backup</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">CONTEXT MANAGEMENT</div>
+  <h2 class="headline">StatusLine-based proactive backups catch context before auto-compaction destroys it</h2>
+
+  <p>Auto-compaction is the silent killer of agentic coding sessions. You are mid-feature, the agent has accumulated deep context about the codebase, the current task, the decisions made so far, and the remaining work. Then the token count crosses a threshold and Claude Code compacts the conversation. The agent continues, but it has lost the nuanced understanding it built over the last 30 minutes. It starts making decisions that contradict earlier ones, re-reading files it already analyzed, and asking questions it already answered. The compacted summary preserves the gist but destroys the detail. There is no warning. There is no undo.</p>
+
+  <p>StatusLine is the only hook mechanism in Claude Code that receives live token metrics during a session. It fires on every turn, receiving the current token count, the context window size, and the remaining capacity. This makes it the only viable trigger point for proactive context backup&mdash;every other hook type fires on specific events (tool use, notifications) that have no correlation with context pressure.</p>
+
+  <p>The ClaudeFast implementation (from claudefa.st) uses a three-file architecture that separates concerns cleanly:</p>
+
+  <p><strong><code>backup-core.mjs</code></strong> contains the shared logic: reading conversation state, formatting backup content, writing backup files, managing the backup index. This module is pure functions with no trigger logic&mdash;it does not know or care when it gets called.</p>
+
+  <p><strong><code>statusline-monitor.mjs</code></strong> handles threshold detection. It receives the StatusLine payload on every turn, extracts token metrics, compares against configured thresholds, and calls backup-core when a threshold is crossed. This is the scheduling brain.</p>
+
+  <p><strong><code>conv-backup.mjs</code></strong> handles the PreCompact trigger. When Claude Code is about to compact, this hook fires and creates one final backup of the full conversation before compaction destroys the detail. This is the safety net&mdash;if the threshold-based backups missed something, the PreCompact backup catches it.</p>
+
+  <p>The dual trigger system is the key architectural insight. Two independent mechanisms ensure backups happen:</p>
+
+  <p><strong>Token-based primary triggers.</strong> First backup at 50K tokens consumed. Subsequent backups every 10K tokens after that. These are absolute token counts, not percentages. The rationale: absolute counts correlate with actual context accumulation. After 50K tokens of conversation, the agent has built meaningful context worth preserving. Every 10K tokens after that represents additional decisions and understanding that should be captured incrementally. The backup files are numbered sequentially with timestamps:</p>
+
+<pre>
+.claude/backups/
+  001-2026-03-31T14-22-00.md
+  002-2026-03-31T14-35-12.md
+  003-2026-03-31T14-48-30.md
+  latest.md -> 003-2026-03-31T14-48-30.md
+</pre>
+
+  <p><strong>Percentage-based safety net.</strong> Backups also trigger at 30%, 15%, and 5% remaining context. These are emergency triggers for when the token-based system has not fired recently or when large tool outputs consume context faster than expected. A single file read that returns 10K tokens can push the context from comfortable to critical without crossing a 10K-increment boundary. The percentage triggers catch these spikes.</p>
+
+  <p>There is a critical implementation detail that most StatusLine backup implementations get wrong: the <code>remaining_percentage</code> field in the StatusLine payload includes a hidden 33K-token autocompact buffer. Claude Code reserves approximately 33,000 tokens as a buffer before triggering auto-compaction. When the StatusLine reports 5% remaining, the actual tokens available before compaction is <code>(reported_remaining - 33000)</code>. If your context window is 200K tokens, 5% remaining means 10K tokens reported, but only about negative 23K actual&mdash;meaning compaction is imminent or already triggered. For accurate threshold calculation:</p>
+
+<pre>
+function getActualRemaining(statusPayload) {
+  const AUTOCOMPACT_BUFFER = 33000;
+  const reported = statusPayload.remaining_tokens;
+  const actual = Math.max(0, reported - AUTOCOMPACT_BUFFER);
+  return actual;
+}
+
+function getActualPercentage(statusPayload) {
+  const AUTOCOMPACT_BUFFER = 33000;
+  const total = statusPayload.context_window;
+  const effectiveTotal = total - AUTOCOMPACT_BUFFER;
+  const used = statusPayload.tokens_used;
+  const remaining = Math.max(0, effectiveTotal - used);
+  return (remaining / effectiveTotal) * 100;
+}
+</pre>
+
+  <p>Without this correction, your 30% threshold actually fires at approximately 13% effective remaining. Your 15% threshold fires when compaction is about to happen. Your 5% threshold fires after compaction has already been triggered and is too late. Every percentage-based trigger in the system must account for the 33K buffer or the safety net is an illusion.</p>
+
+  <p>The StatusLine display integration shows the latest backup path directly in the Claude Code status bar. This serves two purposes: it confirms to the developer that backups are happening, and it provides the path needed for recovery. When compaction occurs, the developer sees the backup path and can immediately reference it. The display format is compact:</p>
+
+<pre>
+// In statusline-monitor.mjs output
+return {
+  display: `Backup: #${backupNumber} | ${actualPct}% free`,
+  // StatusLine return value shown in Claude Code UI
+};
+</pre>
+
+  <p>The recommended recovery workflow after compaction: run <code>/clear</code> to reset the conversation entirely, then load the latest backup. Loading a backup into a compacted conversation is worse than loading it into a clean one because the compacted summary may conflict with the backup's detailed state. A clean start with a backup is a known state. A compacted conversation with a backup loaded on top is two potentially conflicting views of the same session.</p>
+
+  <p>State tracking uses a shared JSON file that both the StatusLine monitor and the PreCompact hook can access:</p>
+
+<pre>
+// .claude/backups/state.json
+{
+  "lastBackupTokens": 72000,
+  "lastBackupTime": "2026-03-31T14:48:30Z",
+  "backupCount": 3,
+  "thresholdsFired": {
+    "30pct": true,
+    "15pct": false,
+    "5pct": false
+  },
+  "latestBackupPath": ".claude/backups/003-2026-03-31T14-48-30.md"
+}
+</pre>
+
+  <p>The shared state prevents duplicate backups. Without it, the percentage trigger and the token trigger might both fire within the same turn, creating redundant backups. The state file records what has already been backed up and what thresholds have been crossed.</p>
+
+  <p>For 1M context windows (available with Opus 4 and higher-tier models), the token-based triggers matter significantly more than percentage-based ones. Here is why: 5% of 1M tokens is 50K tokens. The 30% threshold fires at 300K tokens remaining, which is 700K tokens consumed. At that point, the session has been running for hours and has accumulated enormous context. But the percentage-based trigger treats this the same as 30% remaining on a 200K window (60K consumed). The actual context pressure is entirely different. Token-based triggers (first at 50K, every 10K after) create granular backups throughout the session regardless of window size. For 1M windows, consider adjusting to first backup at 100K tokens and every 25K after&mdash;the session will run much longer, and 10K-increment backups would produce excessive files.</p>
+
+<pre>
+// Recommended thresholds by context window size
+const THRESHOLDS = {
+  '200k': { firstBackup: 50000, increment: 10000 },
+  '500k': { firstBackup: 75000, increment: 15000 },
+  '1m':   { firstBackup: 100000, increment: 25000 },
+};
+</pre>
+
+  <p>The backup content itself should be structured for reload, not for human reading. A backup that says "we discussed the auth system and decided to use JWT" is useless for an agent. A backup that says "Current task: implement refresh token rotation in /src/auth/refresh.ts. Decisions made: (1) refresh tokens stored in HttpOnly cookies, not localStorage, (2) rotation happens on every use with 7-day absolute expiry, (3) revocation tracked in Redis set with TTL. Files modified: /src/auth/refresh.ts (new), /src/auth/middleware.ts (added refresh check), /src/config/redis.ts (added revocation set). Remaining work: integration tests, update OpenAPI spec, add rate limiting to refresh endpoint." is immediately actionable. The agent loads it and knows exactly where it is.</p>
+
+<pre>
+## Backup Format Template
+
+### Current Task
+[One sentence describing the active task]
+
+### Decisions Made This Session
+1. [Decision]: [Rationale]
+2. [Decision]: [Rationale]
+
+### Files Modified
+- [path] — [what changed and why]
+
+### Current State
+[What is working, what is broken, what is in progress]
+
+### Remaining Work
+- [ ] [Next step]
+- [ ] [Following step]
+
+### Key Context
+[Anything the agent discovered that is not in memory spokes
+and would be expensive to re-discover]
+</pre>
+
+  <p>One final implementation note: the StatusLine hook must be fast. It fires on every single turn. If your backup logic takes 500ms, you are adding 500ms of latency to every agent response. The threshold check itself should be a simple numeric comparison (under 1ms). Backup writes should only happen when a threshold is actually crossed, and they should be async where possible. The ClaudeFast implementation uses synchronous file writes (necessary for the PreCompact hook, which must complete before compaction) but async writes for the threshold-based backups where a few hundred milliseconds of delay is acceptable.</p>
+
+  <p class="relevance">Relevant if you run sessions long enough to hit auto-compaction (typically 60+ minutes of active work or 30+ tool-use turns), especially on complex tasks where losing mid-feature context means restarting analysis from scratch.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="hub-spoke-memory.html">Hub-and-spoke memory pattern persists architectural decisions across 200+ sessions</a></p>
+  <p style="text-indent: 0;"><a href="workflow-template.html">runesleo/claude-code-workflow codifies 3 months of daily session management patterns</a></p>
+  <p style="text-indent: 0;"><a href="specweave-evaluation.html">SpecWeave adds persistent quality gates across sessions and tools</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="font-size: 11px; text-indent: 0; color: #666;">[1] ClaudeFast hooks guide &mdash; StatusLine backup section &mdash; <a href="https://claudefa.st">claudefa.st</a></p>
+</div>
+
+<footer>
+  <a href="index.html">&larr; Back to Agentic Coding</a>
+</footer>
+
+</body>
+</html>

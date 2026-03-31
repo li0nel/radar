@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — SpecWeave Evaluation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; SpecWeave Evaluation</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">WORKFLOW DESIGN</div>
+  <h2 class="headline">SpecWeave adds persistent quality gates across sessions and tools</h2>
+
+  <p>SpecWeave (<code>npm install -g specweave</code>) is a spec-first behavior enforcement layer that sits between your intent and your AI coding tools. It works with Claude Code, Cursor, Copilot, and Codex. The core thesis is simple and correct: if you cannot express a quality standard as a machine-readable specification, that standard will not survive contact with agentic workflows at scale. SpecWeave makes specifications the durable artifact rather than the conversation history, the CLAUDE.md file, or the developer's memory.</p>
+
+  <p>The problems it solves are real and measurable. <strong>Session amnesia</strong>: session 47 does not know what session 46 decided about error handling patterns, API response shapes, or test coverage thresholds. You can write it in CLAUDE.md, but CLAUDE.md is instructions, not enforcement. Nothing stops an agent from ignoring instructions when context gets tight or when the model decides the instruction is less relevant than the immediate task. SpecWeave turns decisions into gates. The agent cannot merge an increment that violates a gate. This is categorically different from "please follow these guidelines."</p>
+
+  <p><strong>Standards lottery</strong>: without enforcement, the quality of any given session depends on which model you hit, how much context remains, how well-written the prompt was, and whether Mercury is in retrograde. Run the same task ten times across ten sessions and you get ten different quality levels. Some sessions produce pristine code with comprehensive tests. Others produce code that technically works but violates six team conventions. SpecWeave normalizes this. The gate is the gate. It does not care whether the session was lucky or unlucky.</p>
+
+  <p><strong>Coordination failure</strong>: when parallel agents work on related features, they make conflicting decisions. Agent A adds a new error type; Agent B adds a different error type for the same condition. Agent A picks camelCase for the new API field; Agent B picks snake_case. Without a shared enforcement layer, you discover these conflicts at code review time, which means a human is doing the coordination work that the system should handle.</p>
+
+  <p>SpecWeave's agent swarm capability addresses coordination directly. Each agent owns an isolated increment. The increment is a bounded unit of work with explicit inputs, outputs, and quality gates. No two agents modify the same files simultaneously. When an agent completes its increment, the result passes through the spec gates before being integrated. Conflicts are caught at the gate, not at review. The project has validated this approach across 635+ increments of self-building&mdash;SpecWeave is built using SpecWeave, which is the strongest possible dogfooding signal.</p>
+
+  <p>The token reduction claim deserves scrutiny. SpecWeave reports 70%+ token reduction via its plugin architecture. The mechanism is straightforward: instead of stuffing context into the conversation window (which the agent then ignores once it scrolls past the attention horizon), SpecWeave externalizes specifications into files that are loaded on demand. The plugin architecture means the agent only loads the specs relevant to the current increment, not the entire specification corpus. This is not magic; it is the same principle behind hub-and-spoke memory patterns, applied to specification enforcement. The 70% figure likely measures total tokens across a multi-session feature build, comparing "everything in CLAUDE.md" against "specs loaded per increment." Credible, but environment-dependent.</p>
+
+  <p>The LSP code intelligence integration is genuinely impressive. SpecWeave claims 198x faster than grep for code navigation. This is plausible because LSP provides semantic understanding&mdash;it knows that <code>getUserById</code> in file A is the same function referenced in file B, while grep just matches strings. For an agent deciding where to make changes, semantic navigation prevents entire classes of errors: modifying the wrong function with the same name, missing call sites, breaking interfaces without updating implementations. The LSP integration turns SpecWeave from "spec enforcement" into "spec enforcement with code understanding," which is a meaningful architectural advantage over homegrown solutions.</p>
+
+  <p>Living documentation is the other differentiator. Specifications auto-update via hooks when code changes. This inverts the usual relationship where docs lag code. In a SpecWeave project, the specification is the source of truth, and the code must conform to it. When the specification changes (through a deliberate process, not an agent whim), the documentation updates automatically. When the code changes, the hooks verify spec compliance and update any derived documentation. This is how specifications should work but almost never do in practice.</p>
+
+  <p>The configuration system makes enforcement concrete:</p>
+
+<pre>
+testing:
+  defaultTestMode: "TDD"
+  coverageThreshold: 80
+quality:
+  grillRequired: true
+  maxComplexity: 15
+  requiredPatterns:
+    - error-handling
+    - input-validation
+</pre>
+
+  <p><code>grillRequired: true</code> is the key line. "Grill" in SpecWeave terminology is the verification phase where the completed increment is tested against its specification. When grill is required, the agent cannot declare an increment complete without passing verification. This is the difference between "we encourage testing" and "you cannot ship without tests." Every team says they value quality. SpecWeave teams enforce it mechanically.</p>
+
+  <p>The practical decision framework for when to use SpecWeave versus lighter approaches follows a clear complexity gradient. <strong>Simple bug fixes</strong> (typos, off-by-one errors, straightforward patches): just talk to the AI directly. SpecWeave overhead exceeds the benefit. <strong>Small features</strong> (single-file additions, minor API endpoints): write a brief plan, then implement. A CLAUDE.md instruction is sufficient. <strong>Medium features</strong> (multi-file changes, new subsystems): brainstorm the approach, create a SpecWeave plan, then run auto-implementation against the spec. This is where SpecWeave starts earning its keep because the spec prevents drift across the multiple files. <strong>Large refactors</strong> (architectural changes, cross-cutting concerns): use agent teams with isolated increments. This is SpecWeave's core value proposition&mdash;without spec-enforced coordination, multi-agent refactors produce chaos.</p>
+
+  <p>The tradeoffs are real and should not be minimized. SpecWeave is heavyweight for simple tasks. The ceremony of creating specifications, defining increments, and configuring quality gates takes time. If your project is small or your changes are simple, this ceremony costs more than it saves. It is another tool in the chain, which means another point of failure, another thing to update, another learning curve for new team members. The specification language itself requires investment&mdash;writing good specs is a skill, and writing specs that are precise enough for machine enforcement but flexible enough for real-world code is harder than it looks.</p>
+
+  <p>Compared to rolling your own enforcement with Claude Code skills and hooks: homegrown solutions are cheaper to start, perfectly tailored to your workflow, and require no external dependency. But they lack the LSP integration, the increment isolation for agent swarms, the living documentation, and the 635+ increments of battle-testing. If you need multi-agent coordination on a large codebase, SpecWeave solves problems that are genuinely hard to solve with hooks alone. If you need simple quality gates on a small project, a well-written <code>PreToolUse</code> hook accomplishes 80% of the value at 10% of the complexity.</p>
+
+  <p>The self-building track record (635+ increments) is the strongest argument for SpecWeave's viability. It is also the strongest argument for its complexity ceiling&mdash;a tool that requires 635 increments to build itself is not a tool optimized for simplicity. Evaluate accordingly based on your project's actual coordination needs, not aspirational ones.</p>
+
+  <p class="relevance">Relevant if you are running multi-session or multi-agent workflows where quality drift between sessions is a measurable problem, or if you need agent swarm coordination beyond what hooks and CLAUDE.md can enforce.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="aapev-skill-pattern.html">The AAPEV 5-phase pattern prevents agents from jumping to code without thinking</a></p>
+  <p style="text-indent: 0;"><a href="hub-spoke-memory.html">Hub-and-spoke memory pattern persists architectural decisions across 200+ sessions</a></p>
+  <p style="text-indent: 0;"><a href="workflow-template.html">runesleo/claude-code-workflow codifies 3 months of daily session management patterns</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="font-size: 11px; text-indent: 0; color: #666;">[1] SpecWeave documentation and introduction &mdash; <a href="https://spec-weave.com/docs/intro/">spec-weave.com/docs/intro/</a></p>
+</div>
+
+<footer>
+  <a href="index.html">&larr; Back to Agentic Coding</a>
+</footer>
+
+</body>
+</html>

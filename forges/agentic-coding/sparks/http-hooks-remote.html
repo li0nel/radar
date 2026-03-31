@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — HTTP Hooks Open Claude Code to Remote Validation Services</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; HTTP Hooks &middot; March 31, 2026</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">Hooks &amp; Configuration</div>
+  <div class="headline">HTTP hooks open Claude Code to remote validation services and team-wide policies</div>
+
+  <p>Command hooks run a local process. HTTP hooks POST a JSON payload to a URL. That single difference&mdash;local process vs. network request&mdash;changes the entire operational model. With command hooks, every developer's machine must have the hook script installed, kept in sync, and running the same version. With HTTP hooks, the validation logic lives on a server your team controls, and every Claude Code instance in the organization hits the same endpoint. One deployment updates the policy for everyone. Released in February 2026, HTTP hooks are the mechanism that makes Claude Code governable at organizational scale.</p>
+
+  <p>The semantics are deliberately different from command hooks, and the differences matter for correctness. A command hook that exits with code 2 blocks execution&mdash;hard stop, Claude sees the denial. An HTTP hook that returns a non-2xx status code does <em>not</em> block execution. This is the single most misunderstood aspect of HTTP hooks. A 500, a 503, a timeout, a DNS failure&mdash;none of these prevent Claude from proceeding. The design rationale is resilience: if your validation server is down, you don't want every developer on your team locked out of Claude Code. Network failures are treated as non-blocking errors. Claude sees the error message but continues working.</p>
+
+  <p>To actually block an action via HTTP hook, the endpoint must return a 2xx status code with a JSON body that contains an explicit deny. The response body must include <code>"decision": "block"</code> (or the equivalent field your hook configuration expects). This is a critical design pattern: blocking is an affirmative action, not a failure mode. Your server must be healthy enough to return a 200 and explicitly say "no." This means your validation service needs to be reliable in both directions&mdash;it must be up to approve things <em>and</em> up to deny them.</p>
+
+  <p>The response handling matrix is worth committing to memory:</p>
+
+  <pre>| Response             | Claude Sees           | Execution |
+|----------------------|-----------------------|-----------|
+| 2xx + empty body     | Nothing               | Continues |
+| 2xx + plain text     | Text as info message  | Continues |
+| 2xx + JSON (allow)   | Nothing or message    | Continues |
+| 2xx + JSON (block)   | Block reason message  | BLOCKED   |
+| Non-2xx (any body)   | Error info message    | Continues |
+| Timeout              | Timeout warning       | Continues |
+| Connection refused   | Connection error      | Continues |</pre>
+
+  <p>The only path to blocking is the fourth row. Every failure mode defaults to allowing execution. This is a permissive-by-default design, and it's the right one for a development tool&mdash;you don't want your CI-style validation infrastructure to become a single point of failure for every developer's coding session.</p>
+
+  <p>Configuration lives in <code>.claude/settings.json</code> (project-level) or <code>~/.claude/settings.json</code> (user-level). An HTTP hook definition looks like this:</p>
+
+  <pre>{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "type": "http",
+        "url": "https://hooks.internal.corp.com/claude/validate",
+        "headers": {
+          "Authorization": "Bearer $CLAUDE_HOOK_TOKEN",
+          "X-Team-Id": "$TEAM_ID"
+        },
+        "allowedEnvVars": ["CLAUDE_HOOK_TOKEN", "TEAM_ID"],
+        "timeout": 5000
+      }
+    ]
+  }
+}</pre>
+
+  <p>The <code>allowedEnvVars</code> field is the security mechanism that prevents HTTP hooks from becoming an accidental secret exfiltration vector. When Claude Code interpolates environment variables in the <code>headers</code> object, it <em>only</em> interpolates variables explicitly listed in <code>allowedEnvVars</code>. Any <code>$VAR</code> reference not in the allowlist resolves to an empty string, silently. No error, no warning. This is intentional&mdash;it prevents a misconfigured hook from accidentally sending <code>$AWS_SECRET_ACCESS_KEY</code> or <code>$GITHUB_TOKEN</code> to an endpoint. The silence is debatable (a warning would help debugging), but the security tradeoff favors quiet failure.</p>
+
+  <p>The practical implication: if your HTTP hook's authorization suddenly stops working, check <code>allowedEnvVars</code> first. The most common failure mode is adding a header that references a new environment variable without adding it to the allowlist. The header gets sent with an empty value, the server rejects it, but because non-2xx responses are non-blocking, Claude proceeds without validation. You've silently disabled your policy enforcement. Monitoring your hook endpoint's request logs is the only reliable way to catch this.</p>
+
+  <p>HTTP hooks are deduplicated by URL. If two different hook configurations in the same lifecycle event point to the same URL, Claude Code sends the request once. This is relevant when project-level and user-level settings both define hooks for the same endpoint&mdash;common when a team's shared configuration overlaps with a developer's personal configuration. The deduplication is purely URL-based; different headers or different timeout values on the same URL still result in a single request (using the configuration from the higher-priority source).</p>
+
+  <p>There is no <code>/hooks</code> menu support for HTTP hooks. Unlike command hooks, which can be created and managed through Claude Code's interactive <code>/hooks</code> slash command, HTTP hooks are config-only. You must edit <code>.claude/settings.json</code> directly. This is a significant ergonomic gap for teams trying to roll out HTTP hooks&mdash;developers who are used to the <code>/hooks</code> UI for managing command hooks will look for HTTP hooks there and not find them. The likely reason is that HTTP hooks are aimed at platform teams who manage configuration centrally, not individual developers who configure hooks interactively.</p>
+
+  <p>The event JSON payload that gets POSTed to your endpoint follows the same structure as command hook input, but delivered as an HTTP body instead of stdin. For a <code>PreToolUse</code> event on a Bash tool invocation:</p>
+
+  <pre>{
+  "event": "PreToolUse",
+  "tool": "Bash",
+  "input": {
+    "command": "rm -rf /tmp/build",
+    "description": "Clean build directory"
+  },
+  "session": {
+    "id": "sess_abc123",
+    "cwd": "/home/dev/project"
+  }
+}</pre>
+
+  <p>Your endpoint receives this, applies whatever validation logic you want, and returns a decision. A blocking response looks like:</p>
+
+  <pre>{
+  "decision": "block",
+  "reason": "Destructive rm -rf commands require explicit approval. Use the cleanup script at ./scripts/clean.sh instead."
+}</pre>
+
+  <p>The <code>reason</code> field is surfaced to Claude as the block message, and Claude will inform the user why the action was prevented. This creates a feedback loop: the developer sees the policy, learns about the preferred alternative, and adjusts their behavior. Over time, the hook fires less often because developers internalize the norms. This is the organizational value of HTTP hooks&mdash;they encode institutional knowledge into infrastructure.</p>
+
+  <p>The canonical use case is routing Bash commands through a validation endpoint. A team-wide HTTP hook on <code>PreToolUse</code> intercepts every tool invocation, checks if it's a Bash command, and applies a policy: no <code>rm -rf</code> outside of designated directories, no <code>curl</code> to external URLs in production repositories, no <code>docker</code> commands without the team's standard resource limits, no <code>git push --force</code> to protected branches. The endpoint is a small Go or Python service with a rule engine that takes maybe a day to write and runs on a shared server. One service, enforced everywhere.</p>
+
+  <p>Centralized audit logging is the second major use case. An HTTP hook on <code>PostToolUse</code> posts every tool invocation and its result to an audit service. This gives you a complete record of what Claude did across every developer session in your organization. For regulated industries&mdash;finance, healthcare, government contracting&mdash;this is not optional. The audit trail must exist, and it must be tamper-resistant (which means it can't live on the developer's local machine where they could delete hook logs). HTTP hooks posting to a centralized, append-only audit service satisfy this requirement.</p>
+
+  <p>Slack and PagerDuty integration is straightforward. An HTTP hook on the <code>Notification</code> event can forward Claude Code notifications to a Slack channel. A hook on <code>Stop</code> can alert a PagerDuty endpoint if Claude stops unexpectedly during an attended-off workflow. These are fire-and-forget side effects&mdash;you don't need the response, and you don't want a Slack API timeout to block Claude. Combine with <code>"async": true</code> for non-blocking delivery.</p>
+
+  <p>Microservice architectures benefit from HTTP hooks as the glue layer between Claude Code and internal services. A <code>PreToolUse</code> hook can check a deployment service's lock status before allowing file edits in a repository that's mid-deploy. A <code>SessionStart</code> hook can register the developer's session with a coordination service that prevents two developers from having Claude Code work on the same files simultaneously. A <code>PostToolUse</code> hook on file writes can trigger incremental builds on a build farm. The pattern is always the same: Claude Code emits an event, the event hits a URL, the URL triggers business logic.</p>
+
+  <p>When HTTP hooks are overkill: solo developers, small teams where everyone is in the same room, projects where the validation logic is simple enough to express as a shell script. A command hook that greps for dangerous patterns in Bash commands is faster to set up, has zero network latency, works offline, and doesn't require maintaining a server. The crossover point is roughly when you have more than five developers using Claude Code, or when your validation logic needs to query external state (deployment status, feature flags, access control lists) that doesn't exist on the developer's local machine.</p>
+
+  <p>When HTTP hooks are essential: any team larger than ten developers, any organization with compliance requirements, any environment where policy must be enforced uniformly and cannot depend on developers installing the right scripts locally. The operational model of "deploy a policy to a server and every Claude Code instance picks it up" is the same model that made centralized linting servers, pre-merge checks, and remote policy engines standard in mature engineering organizations. HTTP hooks are the mechanism that brings Claude Code into that operational model.</p>
+
+  <p>One architectural consideration: your HTTP hook endpoint becomes a latency-sensitive dependency. Every synchronous HTTP hook on <code>PreToolUse</code> adds its response time to every tool invocation. If your endpoint takes 200ms to respond, and Claude invokes 50 tools per task, you've added 10 seconds of wall-clock time. Keep your validation logic fast&mdash;in-memory rule evaluation, not database queries. Use caching aggressively. Set tight timeouts (the default is 5000ms, but for <code>PreToolUse</code> hooks, 1000ms is a better target). And for any hook where you don't need the response to influence Claude's behavior, use async mode to eliminate the latency entirely.</p>
+
+  <p class="relevance">If your team has more than five developers on Claude Code, start with a single HTTP hook on PreToolUse that logs all Bash commands to a centralized endpoint. Don't try to block anything initially&mdash;just collect data on what commands Claude runs across your organization. After a week of data, you'll know exactly which policies to enforce. The audit-first approach builds the case for policy enforcement with evidence, not speculation.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="async-hooks-patterns.html">Async hooks enable non-blocking side effects without slowing the agent loop</a></p>
+  <p style="text-indent: 0;"><a href="seventeen-lifecycle-hooks.html">Claude Code exposes 17 lifecycle events &mdash; the newer ones unlock Agent Teams and automated onboarding</a></p>
+  <p style="text-indent: 0;"><a href="skill-activation-hooks.html">Skill activation hooks guarantee skill loading by injecting context before Claude processes the prompt</a></p>
+  <p style="text-indent: 0;"><a href="model-router-hook.html">Model router hook auto-switches tier by task complexity with zero API calls</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] claudefa.st, "Hooks Guide &mdash; HTTP Hooks," claudefa.st/hooks (HTTP hooks section)</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999;">The Radar</a> &middot; Agentic Coding &middot; March 31, 2026
+</footer>
+
+</body>
+</html>

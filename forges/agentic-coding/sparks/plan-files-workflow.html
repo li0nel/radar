@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Plan Files Workflow</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Plan Files Workflow</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">WORKFLOW DESIGN</div>
+  <div class="headline">Plan files in the repo beat tickets for agentic development</div>
+
+  <p>George Violaris published the most complete description of an agentic development workflow in early 2026, and the centerpiece is not a tool or a prompt technique&mdash;it is a file format. A plan file. One per feature, living in the repository, version-controlled alongside the code it describes. The plan file is the contract between the human (who defines what to build) and the agent (who builds it). Everything else in the workflow exists to produce, refine, or execute plan files.</p>
+
+  <p>The workflow has four phases. Phase 1 is brainstorm: you describe the feature you want, and the agent maps it against the actual codebase context. Not in the abstract&mdash;against the real files, the real APIs, the real data models. The output of Phase 1 is a feature map: what exists that is relevant, what needs to change, what needs to be created, what constraints the codebase imposes. This phase is exploratory. You are not committing to anything. You are building shared understanding between yourself and the agent about the shape of the work.</p>
+
+  <p>Phase 2 converts the feature map into plan files. This is where the real work happens, and Violaris is explicit about this: "Implementation is the easy part. The plan is where the value is." Each plan file has five sections, and every section is mandatory:</p>
+
+<pre># Plan: [Feature Name]
+
+## Objective
+[Observable behavior, not implementation details.
+"Users can reset their password via email" not
+"Add a POST /reset-password endpoint"]
+
+## Constraints
+[What this feature must NOT do. Boundaries.
+"Must not require re-authentication after reset"
+"Must not send more than one email per request"
+"Must not modify the existing session table schema"]
+
+## Dependencies
+[Other features, services, or files this depends on.
+"Requires: email service (already implemented in src/email/)
+Requires: user table has email column (confirmed)
+Blocked by: nothing"]
+
+## Acceptance Criteria
+[Specific, testable conditions. Each one is a yes/no.
+"[ ] User receives reset email within 30 seconds
+ [ ] Reset link expires after 24 hours
+ [ ] Used reset link returns 410 Gone
+ [ ] Password must meet existing strength requirements
+ [ ] Audit log entry created for every reset attempt"]
+
+## Open Questions
+[Things you do not know yet. Unresolved decisions.
+"Should we rate-limit reset requests per email address?
+Do we need to invalidate existing sessions on reset?
+What is the email template? (Waiting on design)"]</pre>
+
+  <p>The Objective section is the most important and the most commonly written badly. Violaris insists on observable behavior: what the user sees, not what the code does. "Add a password reset endpoint" is an implementation directive that constrains the agent's solution space unnecessarily. "Users can reset their password via email" describes the outcome and lets the agent figure out the implementation. The distinction matters because agents are better at implementation when you tell them what to achieve, and worse when you tell them how to achieve it.</p>
+
+  <p>The Constraints section is the section most people skip, and its absence causes the most rework. Without explicit constraints, the agent makes reasonable but wrong assumptions. It refactors the session table to add a reset_token column when you wanted a separate tokens table. It adds a new email service when you wanted it to use the existing one. It requires re-authentication after reset when the product requirement is seamless continuation. Every constraint you fail to write is a 50/50 chance the agent guesses wrong, and each wrong guess is 15&ndash;45 minutes of rework.</p>
+
+  <p>The Dependencies section prevents the most expensive failure: building on something that does not exist or is not ready. The agent starts implementing a feature that depends on an API endpoint that was planned but never built. Thirty minutes of work wasted. Explicit dependencies force you to verify that prerequisites are met before starting, and they give the agent the exact file paths and interfaces it needs to integrate with.</p>
+
+  <p>Acceptance Criteria must be specific and testable. "Works correctly" is not an acceptance criterion. "Reset link expires after 24 hours" is. Each criterion maps directly to either an automated test (Gate 1) or a verification step in the Stop hook. When the agent says it is done, the Stop hook checks the plan file's acceptance criteria and verifies each one. This is the closed loop: the plan file defines done, the implementation attempts done, the Stop hook verifies done.</p>
+
+  <p>Open Questions is the section that makes plan files honest. Every feature has unknowns. Pretending otherwise leads to agents making silent assumptions about the unknowns, which leads to rework when the assumptions are wrong. By listing open questions explicitly, you create a forcing function: resolve the questions before starting implementation, or accept that the implementation may need to change when the questions are answered. The plan file makes the uncertainty visible instead of hiding it in the agent's implicit decisions.</p>
+
+  <p>Phase 3 is implementation. Violaris describes it as "the easy part," and this is not false modesty&mdash;it is a structural observation. With a well-written plan file, implementation is mechanical. The agent knows what to build (objective), what not to do (constraints), what already exists (dependencies), and what "done" means (acceptance criteria). The degrees of freedom are narrow enough that the agent can make good decisions within the defined space. The quality of the implementation is directly proportional to the quality of the plan.</p>
+
+  <p>Phase 4 is review. The plan file serves as the review checklist. The reviewer (human, Gate 3) reads the plan file and the implementation together. Does the code achieve the objective? Does it violate any constraints? Does it correctly integrate with the dependencies? Does it satisfy all acceptance criteria? Were the open questions resolved, and if so, are the resolutions reflected in the code? The plan file transforms code review from "does this code look right?" to "does this code match the contract?"</p>
+
+  <p>Violaris's key insight deserves direct quotation: "The value of agentic coding isn't speed. It's that it forces you to be explicit about what you'd normally leave implicit." In traditional development, a senior engineer carries implicit knowledge about constraints, dependencies, and acceptance criteria. They do not write them down because they hold them in their head and apply them continuously during implementation. An agent has no implicit knowledge. Everything must be explicit or it does not exist. The plan file is the mechanism for making implicit knowledge explicit, and the surprising side effect is that the explicit version is better&mdash;more complete, more precise, more reviewable&mdash;than the implicit version ever was.</p>
+
+  <p><strong>Why files beat tickets.</strong> The comparison to Jira tickets, Linear issues, or GitHub issues is inevitable, and the answer is structural, not preferential. Plan files are versioned. When the plan changes, <code>git diff</code> shows exactly what changed and when. Tickets have edit histories, but they are append-only and hard to diff. Plan files are diffable. You can compare v1 of the plan to v3 and see the evolution of requirements. Tickets accumulate comments but the canonical state is ambiguous. Plan files survive session resets. When an agent session ends and a new one begins, the plan file is right there in the repo. No need to paste a ticket URL, no need to re-explain context. The new session reads the plan file and has full context. Plan files live next to the code. The plan for the password reset feature lives in <code>plans/password-reset.md</code> right next to <code>src/auth/reset.ts</code>. Proximity matters for both humans and agents.</p>
+
+  <p>Plan files also compose. A large feature decomposes into multiple plan files, each covering a sub-feature. The dependencies section creates a DAG (directed acyclic graph) of plan files, and the implementation order falls out naturally: implement the plans with no unresolved dependencies first, then the plans that depend on them, and so on. This is project management via filesystem and git, not via a separate tool with its own state management and synchronization problems.</p>
+
+  <p><strong>Integration with voice-first workflows.</strong> For developers using voice transcription (Wispr Flow, Whisper, or similar), the plan file workflow has a natural on-ramp. Start with a 10&ndash;20 minute voice dump: describe the feature, what it should do, what it should not do, what you are unsure about, what it depends on. Dump the raw transcription into the agent and instruct it to produce a plan file with the five sections. The agent converts your stream-of-consciousness into a structured contract. You review the plan file, correct misunderstandings, add missing constraints, and resolve what you can of the open questions. Iterate until the plan file is airtight. Then implement.</p>
+
+  <p>This voice-to-plan pipeline solves the "blank page" problem that many developers face when asked to write specs. Speaking is easier than writing for most people, especially when the topic is a feature they understand well but have not yet structured. The agent's role in Phase 2 is to provide the structure, not the content. You provide the knowledge; the agent provides the format.</p>
+
+  <p><strong>The plan file template</strong> should live in your repository as a template that agents can reference. Place it at <code>.claude/templates/plan-file.md</code> or equivalent, and reference it in CLAUDE.md so every session knows the format exists. The agent should never have to invent the plan file format from scratch&mdash;it should copy the template and fill in the sections.</p>
+
+  <p>One operational refinement: plan files should have a status header. <code>Status: draft</code> means the plan is being written and is not ready for implementation. <code>Status: approved</code> means the plan has been reviewed and implementation can begin. <code>Status: in-progress</code> means implementation has started. <code>Status: complete</code> means all acceptance criteria are met and the plan is done. This status field serves as a simple state machine that both humans and agents can check before acting. An agent should refuse to implement a draft plan and should refuse to modify a complete plan without explicit instruction.</p>
+
+  <p>The plan file workflow is not faster than "just start coding." It is slower in Phase 2 (writing plans takes 20&ndash;40 minutes per feature) and dramatically faster in Phase 3 (implementation with a good plan is 2&ndash;5x faster than implementation without one) and Phase 4 (review against a plan is 3&ndash;10x faster than review without one). The total time is comparable or slightly less, but the defect rate drops significantly because the most common source of defects&mdash;misunderstood requirements&mdash;is addressed before a single line of code is written.</p>
+
+  <p class="relevance">The plan file workflow is the single most effective process change for agentic development. Start with one feature. Write the plan file. Implement against it. Measure the difference in rework. The upfront time investment in Phase 2 pays for itself in Phase 3 and 4 on the first feature.</p>
+
+  <h3 style="font-size: 13px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #999;">Related</h3>
+  <p style="text-indent: 0;"><a href="spec-driven-development.html">Spec-driven development is the matured form of vibe coding</a></p>
+  <p style="text-indent: 0;"><a href="three-gate-quality.html">The three-gate pattern (tests + AI review + human approval)</a></p>
+  <p style="text-indent: 0;"><a href="stop-hooks-completion.html">Stop hooks verify plan file acceptance criteria</a></p>
+
+  <h3 style="font-size: 13px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #999;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] medium.com/@violaris.org &mdash; "The Agentic Development Loop: A Complete Workflow for AI-Assisted Coding" (2026)</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999; text-decoration: none;">The Radar</a> &middot; Agentic Coding &middot; Plan Files Workflow
+</footer>
+
+</body>
+</html>

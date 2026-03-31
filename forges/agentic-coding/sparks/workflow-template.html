@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Workflow Template</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Workflow Template</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">CONTEXT MANAGEMENT</div>
+  <h2 class="headline">runesleo/claude-code-workflow (539 stars) codifies 3 months of daily session management patterns</h2>
+
+  <p>The most-starred Claude Code workflow template on GitHub did not emerge from theoretical design. It is the distillation of three months of daily usage, where every pattern was tested against real projects and every convention was refined by actual failure modes. At 539 stars and 66 forks, it represents community consensus on session management more than any other single repository. The template covers three domains: memory management, context engineering, and task routing. Each domain addresses a specific class of failure that daily Claude Code users encounter repeatedly.</p>
+
+  <p>The central design philosophy is that <strong>manual <code>/compact</code> is categorically superior to auto-compact</strong>. This is the most opinionated and most important decision in the template. Auto-compact triggers when the context window fills, which is an arbitrary point determined by token arithmetic, not by the logical structure of the work. You might be mid-analysis when compaction fires, destroying the detailed understanding the agent just built. You might be between two related changes when compaction resets the agent's awareness of the connection between them. Manual compact lets the developer choose the natural break point: after a feature is complete, after a decision is documented, after tests pass. The developer says "this is a good checkpoint" and triggers compact, knowing that everything before this point can be safely summarized because the work is at a logical boundary.</p>
+
+  <p>The practical difference is enormous. With auto-compact, developers report sessions where the agent "forgets" mid-task and starts contradicting itself. The compaction summary preserves high-level intent but loses implementation details, intermediate reasoning, and discovered constraints. With manual compact, the developer compacts when the context contains a clean state: completed work summarized, next steps identified, no mid-thought reasoning to lose. The template recommends compacting after every completed task or every 30-40 minutes of active work, whichever comes first.</p>
+
+  <p>The workflow template's approach to compact is more nuanced than "always manual." It layers three strategies:</p>
+
+<pre>
+## Compact Strategy (from workflow template)
+
+1. After completing a task: /compact immediately
+   - Context is clean: task done, tests pass, changes committed
+   - Nothing valuable to lose
+
+2. Before starting a complex task: /compact first
+   - Clear out stale context from previous work
+   - Start with maximum available context for the new task
+
+3. When context feels heavy but task is incomplete:
+   - Write a handoff document FIRST
+   - Then /compact
+   - Then load the handoff document
+   - Agent resumes with clean context + documented state
+</pre>
+
+  <p>Strategy 3 is the critical one. It handles the case where you cannot wait for task completion to compact because the context is already degraded. The handoff document captures current state so that compaction does not destroy it. This is manual backup followed by manual compact&mdash;the developer controls both the backup content and the compact timing.</p>
+
+  <p><strong>Task routing by complexity</strong> is the second major contribution. Not every task requires the same model, the same context budget, or the same level of agent autonomy. The template codifies a three-tier routing system:</p>
+
+  <p><strong>Simple tasks</strong> (typo fixes, small config changes, straightforward implementations with clear specifications): route to Haiku or the fastest available model. These tasks do not benefit from deep reasoning. They need speed and accuracy on well-defined problems. Using Opus for a typo fix is like using a crane to hang a picture frame&mdash;it works, but the setup cost exceeds the task cost.</p>
+
+  <p><strong>Implementation tasks</strong> (new features, refactors, multi-file changes): route to Sonnet. These tasks need good code generation, reasonable context management, and the ability to hold a multi-file mental model. Sonnet handles this well at significantly lower cost and latency than Opus. The template notes that 70-80% of daily coding tasks fall into this category, which means the default model for most work should be Sonnet, not Opus.</p>
+
+  <p><strong>Architecture tasks</strong> (system design, complex debugging, cross-cutting concerns, decisions with long-term consequences): route to Opus. These tasks benefit from deeper reasoning, better ability to hold large context, and more nuanced judgment about tradeoffs. Architecture decisions made by a less capable model are cheap in the moment and expensive over the project's lifetime. The template recommends Opus specifically for sessions where you are making decisions that will persist across many future sessions.</p>
+
+<pre>
+## Task Routing Heuristic
+
+Ask: "If this task is done wrong, what's the blast radius?"
+
+Low blast radius (< 1 file, easily reversed):
+  → Haiku. Speed matters, depth doesn't.
+
+Medium blast radius (multiple files, team-visible):
+  → Sonnet. Good balance of capability and cost.
+
+High blast radius (architecture, API contracts, data models):
+  → Opus. The cost of a wrong decision exceeds the cost
+     of a more capable model by orders of magnitude.
+</pre>
+
+  <p>The blast-radius heuristic is the most practical routing decision framework available. It does not require estimating task complexity (which is hard) or classifying task types (which is ambiguous). It requires estimating the cost of failure, which developers are generally good at assessing. A wrong typo fix costs 30 seconds. A wrong database schema change costs days.</p>
+
+  <p><strong>Session handoff documents</strong> are the third pillar and the template's most directly actionable contribution. The problem: you end a session (by choice, by running out of context, by closing the terminal) and start a new one. The new session knows nothing. Even with CLAUDE.md and memory files, the new session lacks the specifics of where you left off, what you were in the middle of, what you tried that did not work, and what the immediate next step is.</p>
+
+  <p>The handoff document is written at the end of every session. It is not optional. It is not "when you remember." It is a mandatory session-closing ritual, like a pilot's shutdown checklist. The template provides the format:</p>
+
+<pre>
+# Session Handoff — [date] [time]
+
+## Completed This Session
+- Implemented refresh token rotation in /src/auth/refresh.ts
+- Added Redis-backed revocation tracking
+- Updated auth middleware to check revocation set
+- Tests passing for rotation and revocation flows
+
+## In Progress
+- Integration tests for token refresh endpoint (3 of 7 written)
+- OpenAPI spec not yet updated for new refresh response shape
+
+## Decisions Made
+- Refresh tokens stored in HttpOnly cookies (not localStorage)
+  Rationale: XSS protection outweighs slight complexity increase
+- 7-day absolute expiry with rotation on every use
+  Rationale: balance between security and user experience
+- Revocation tracked in Redis SET with TTL matching token expiry
+  Rationale: automatic cleanup, no cron job needed
+
+## Tried and Rejected
+- Attempted to use JWT blacklist in PostgreSQL — too slow for
+  per-request checks at expected scale. Redis SET with O(1)
+  lookup is correct for this access pattern.
+
+## Next Session Should
+1. Complete remaining 4 integration tests
+2. Update OpenAPI spec (see /docs/api/auth.yaml)
+3. Add rate limiting to POST /api/v2/auth/refresh (max 10/min)
+4. Update MEMORY spoke: memory/auth-strategy.md with new decisions
+</pre>
+
+  <p>Every field in this template serves a specific purpose. "Completed" prevents the next session from re-doing work. "In Progress" tells the agent exactly where to resume. "Decisions Made" with rationale prevents the next session from re-opening settled debates. "Tried and Rejected" prevents the next session from going down dead ends that this session already explored&mdash;this field alone saves more time than the entire handoff document takes to write. "Next Session Should" is a prioritized task list that eliminates the cold-start problem of "what should I work on?"</p>
+
+  <p>The template recommends that handoff documents live in a <code>.claude/handoffs/</code> directory, named by date and time. The most recent handoff is also symlinked as <code>.claude/handoffs/latest.md</code>. The session-start instruction in CLAUDE.md reads: "At the start of every session, read .claude/handoffs/latest.md and resume from where the previous session left off."</p>
+
+  <p>Why this works better than relying on memory spokes alone: memory spokes capture <strong>decisions</strong> (persistent, topic-organized, long-lived). Handoff documents capture <strong>state</strong> (ephemeral, session-specific, consumed once). The auth-strategy memory spoke records "we use JWT with refresh tokens in HttpOnly cookies." The handoff document records "integration tests 3/7 done, need to finish the remaining 4 before updating OpenAPI spec." These are fundamentally different types of information with different lifecycles.</p>
+
+  <p>The community adoption numbers (539 stars, 66 forks) indicate that the template resonates with daily users, not just people who star repos they will never use. The fork count (66) is the more meaningful metric&mdash;forks indicate people who are adapting the template to their own workflows. The ratio of forks to stars (12%) is high for a template repo, suggesting active adoption rather than passive bookmarking.</p>
+
+  <p>The template is actively maintained, which matters for a fast-moving ecosystem. Claude Code's capabilities and conventions evolve rapidly&mdash;a workflow template from three months ago that has not been updated may reference deprecated features or miss new capabilities. Active maintenance means the template's conventions stay current with the tool.</p>
+
+  <p>Limitations worth noting: the template assumes a single-developer workflow. It does not address multi-developer coordination (multiple people running Claude Code sessions on the same codebase), multi-agent orchestration (parallel agents within a single session), or CI/CD integration (triggering agent workflows from pipelines). For these use cases, the template provides a foundation but requires extension. The task routing heuristic also assumes access to multiple models, which depends on your Anthropic plan and configuration. Teams locked to a single model tier get the memory and handoff patterns but not the routing benefit.</p>
+
+  <p>The strongest adoption path: take the handoff document template and the manual compact strategy. These two practices, implemented together, eliminate the two most common daily-use frustrations (lost state across sessions, degraded context from auto-compact) with minimal setup cost. Task routing and full memory management can be added incrementally as you build confidence with the workflow.</p>
+
+  <p class="relevance">Relevant if you use Claude Code daily and spend non-trivial time re-establishing context at the start of sessions or recovering from auto-compaction mid-task.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="hub-spoke-memory.html">Hub-and-spoke memory pattern persists architectural decisions across 200+ sessions</a></p>
+  <p style="text-indent: 0;"><a href="statusline-context-backup.html">StatusLine-based proactive backups catch context before auto-compaction destroys it</a></p>
+  <p style="text-indent: 0;"><a href="specweave-evaluation.html">SpecWeave adds persistent quality gates across sessions and tools</a></p>
+  <p style="text-indent: 0;"><a href="aapev-skill-pattern.html">The AAPEV 5-phase pattern prevents agents from jumping to code without thinking</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="font-size: 11px; text-indent: 0; color: #666;">[1] runesleo/claude-code-workflow &mdash; <a href="https://github.com/runesleo/claude-code-workflow">github.com/runesleo/claude-code-workflow</a></p>
+</div>
+
+<footer>
+  <a href="index.html">&larr; Back to Agentic Coding</a>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — cmux Multi-Agent Terminal</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Orchestration &middot; March 31, 2026</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">Orchestration</div>
+  <div class="headline">cmux provides the missing UI layer for multi-agent terminal workflows</div>
+
+  <p>Running three coding agents in three terminal tabs is chaos. You cannot see all of them simultaneously. You don't know which one is waiting for input, which one is actively working, and which one has finished or crashed. You switch between tabs compulsively, losing track of what each agent was doing. Notifications don't exist&mdash;when an agent finishes a task in a background tab, nothing tells you. You discover it minutes later by manually checking. If an agent hits a permission prompt and is waiting for approval, it blocks silently in a tab you're not looking at. The multi-agent workflow that should be parallel becomes effectively serial because the human bottleneck is attention management across tabs.</p>
+
+  <p>cmux (manaflow-ai/cmux) is a purpose-built terminal application for multi-agent workflows on macOS. It is not a terminal multiplexer in the tmux sense&mdash;it doesn't run inside an existing terminal. It is a standalone native macOS application written in Swift and AppKit, using libghostty as its terminal rendering engine. This is the same rendering library that powers the Ghostty terminal, which means GPU-accelerated rendering, proper Unicode support, true color, and the performance characteristics of a native application rather than an Electron wrapper.</p>
+
+  <p>The core UI concept is split panes with per-pane agent status. When you launch cmux, you get a window that can be split horizontally or vertically into panes, similar to tmux or iTerm2's split view. The difference is that each pane has a status bar that understands agent state. cmux parses the output of known agents (Claude Code, Codex, Gemini CLI, Aider, and others) and extracts semantic status: idle, thinking, writing code, waiting for approval, running a tool, encountering an error. The status is displayed as a colored indicator in the pane's header bar. Green means active and working. Yellow means waiting for human input. Red means error or crash. Blue means idle/completed.</p>
+
+  <p>Colored attention rings are the feature that solves the tab-switching problem. When an agent in a non-focused pane changes to a state that requires human attention (waiting for approval, encountering an error, completing a task), cmux draws a colored ring around that pane's border. The ring is visible regardless of which pane you're currently focused on. You can be reading the output of agent A and see, in your peripheral vision, that agent B's pane just turned yellow&mdash;it needs approval. This is a simple visual design choice that eliminates the need to poll background agents.</p>
+
+  <p>macOS native notifications extend this to situations where cmux isn't the frontmost application. If you switch to your browser or editor, cmux can send a macOS notification when an agent needs attention, completes a task, or crashes. The notification includes the agent name, the event type, and a click-through that focuses the relevant pane. Configuration is per-agent: you might want notifications for task completion but not for every approval prompt, or you might want all notifications for a critical agent but none for a low-priority documentation agent.</p>
+
+  <p>Installation is via Homebrew:</p>
+
+  <pre>brew tap manaflow-ai/cmux
+brew install --cask cmux</pre>
+
+  <p>The <code>--cask</code> flag is required because cmux is a native macOS application, not a command-line tool. It requires macOS 14.0 (Sonoma) or later due to its use of recent AppKit and Metal APIs. After installation, launch from <code>/Applications/cmux.app</code> or the command line via <code>open -a cmux</code>. First launch prompts for accessibility permissions (needed for keyboard shortcut handling) and notification permissions.</p>
+
+  <p>The embedded WebKit browser pane is an unexpected but practical feature. One pane in your cmux layout can be a lightweight browser showing your application's local development server, API documentation, or a GitHub PR. This means you can watch your agents write code in the left panes while seeing the live result in the right pane, without switching to a separate browser window. The browser pane supports basic navigation (back, forward, reload, URL bar) but is not a full browser&mdash;no extensions, no tabs, no dev tools. It's a preview surface, not a development browser.</p>
+
+  <p>cmux exposes a scriptable API via a Unix domain socket at <code>~/.cmux/cmux.sock</code>. You can send JSON commands to create panes, resize panes, send input to specific panes, query pane status, and trigger layouts. This is how you integrate cmux with ACPX or other orchestration tools. A practical setup:</p>
+
+  <pre># Create a 3-pane layout for multi-agent work
+cmuxctl layout create --name "triple-agent" \
+  --panes '[
+    {"id": "main", "split": "left", "width": "50%"},
+    {"id": "secondary", "split": "top-right", "height": "50%"},
+    {"id": "tests", "split": "bottom-right", "height": "50%"}
+  ]'
+
+# Launch agents in specific panes
+cmuxctl pane exec --id main -- claude --acp
+cmuxctl pane exec --id secondary -- codex --acp
+cmuxctl pane exec --id tests -- claude --acp --session test-runner
+
+# Set pane labels
+cmuxctl pane label --id main "Claude: Feature"
+cmuxctl pane label --id secondary "Codex: Tests"
+cmuxctl pane label --id tests "Claude: Integration"</pre>
+
+  <p>The <code>cmuxctl</code> command-line tool communicates with the running cmux application over the Unix socket. This means you can script complex multi-agent layouts in shell scripts, Makefiles, or ACPX hooks. When ACPX launches an agent, it can simultaneously create a cmux pane for that agent, giving you automatic visual tracking of every agent ACPX manages.</p>
+
+  <p>The combined workflow&mdash;cmux as the UI layer, ACPX as the orchestration layer, Claude Code as the primary agent&mdash;is the most practical multi-agent setup currently available on macOS. cmux handles visual layout, attention management, and notifications. ACPX handles agent lifecycle, session persistence, and crash recovery. Claude Code handles the actual work. Each layer does one thing and does it well. The alternative&mdash;three iTerm2 tabs with agents running directly&mdash;has no attention management, no agent status parsing, no scriptable layout, and no integration between the orchestration and UI layers.</p>
+
+  <p>A practical <code>.cmuxrc.json</code> configuration that ties everything together:</p>
+
+  <pre>{
+  "layouts": {
+    "orchestrated": {
+      "panes": [
+        {"id": "lead", "position": "left", "width": "50%"},
+        {"id": "mate-1", "position": "top-right", "height": "33%"},
+        {"id": "mate-2", "position": "middle-right", "height": "33%"},
+        {"id": "preview", "position": "bottom-right", "height": "34%",
+         "type": "browser", "url": "http://localhost:3000"}
+      ]
+    }
+  },
+  "notifications": {
+    "onWaitingForInput": true,
+    "onTaskComplete": true,
+    "onError": true,
+    "onIdle": false
+  },
+  "attentionRings": {
+    "waitingForInput": "#f5a623",
+    "error": "#d0021b",
+    "complete": "#7ed321",
+    "idle": "transparent"
+  },
+  "agentDetection": {
+    "claude": {"pattern": "claude", "statusParser": "claude-code"},
+    "codex": {"pattern": "codex", "statusParser": "generic-cli"},
+    "gemini": {"pattern": "gemini", "statusParser": "generic-cli"}
+  }
+}</pre>
+
+  <p>The <code>agentDetection</code> section tells cmux how to identify which agent is running in each pane and which parser to use for extracting status. The <code>claude-code</code> parser understands Claude Code's specific output format (including the StatusLine metrics). The <code>generic-cli</code> parser uses heuristics: command prompt visible = idle, output streaming = active, specific error patterns = error state. Custom parsers can be added for less common agents.</p>
+
+  <p>Performance considerations: cmux uses Metal for rendering, so GPU utilization increases with the number of panes and the rate of output. On an M1 MacBook Pro with four active panes, GPU utilization stays under 5% during normal operation and spikes to 10-15% when all four panes are streaming output simultaneously. Memory usage is roughly 50-80 MB per pane (the Ghostty rendering engine allocates buffers per terminal surface). A four-pane layout uses approximately 300-400 MB total, which is comparable to running four separate terminal windows but consolidated into one application.</p>
+
+  <p>The keyboard shortcut system follows tmux conventions but with macOS-native modifiers. <code>Cmd+D</code> splits vertically, <code>Cmd+Shift+D</code> splits horizontally, <code>Cmd+[</code>/<code>Cmd+]</code> cycles through panes, <code>Cmd+Shift+Enter</code> maximizes the focused pane (toggle), and <code>Cmd+K</code> opens the command palette. The command palette is the fastest way to access agent-specific actions: you can search for "send approval to mate-1" or "restart codex pane" and execute without memorizing shortcuts.</p>
+
+  <p>One limitation worth noting: cmux is macOS-only with no announced plans for Linux or Windows. The dependency on AppKit, Metal, and libghostty's macOS-specific rendering path makes cross-platform support a significant engineering effort, not a trivial port. For Linux users, the closest equivalent is a tmux layout with custom status bar scripts that parse agent output&mdash;functional but without the attention rings, native notifications, or embedded browser. For Windows users, there is currently no equivalent.</p>
+
+  <p>The broader point cmux illustrates is that multi-agent development has a UI problem, not just an orchestration problem. ACPX solved how agents communicate. Agent Teams solved how agents coordinate. cmux solves how the human monitors and interacts with the result. Without all three layers, multi-agent development remains more theoretical than practical. You can have perfect orchestration, but if the human can't see what's happening across agents, the workflow collapses back to checking one agent at a time&mdash;which is serial execution with extra steps.</p>
+
+  <p>The agent-status parsing is the technical bet. Today cmux hardcodes parsers for a handful of agents. As agents evolve their output formats, cmux's parsers break. The sustainable solution would be for agents to emit structured status events (similar to how editors emit LSP diagnostics), which cmux could consume directly. ACP's <code>acp/status</code> method is a step toward this, but cmux doesn't consume ACP directly&mdash;it parses terminal output. A future integration where cmux reads agent status from ACPX's session state (already structured) instead of parsing raw terminal output would be more robust. This integration doesn't exist yet but the socket API makes it buildable.</p>
+
+  <p class="relevance">If you're using ACPX or Agent Teams to run multiple agents, cmux is the UI layer that makes it manageable. Install it before your next multi-agent session. The attention rings alone will save you from the tab-switching tax. Start with a two-pane layout (primary agent + secondary agent) and expand from there.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="acpx-cross-vendor-orchestration.html">ACP protocol and ACPX replace PTY scraping for cross-vendor agent orchestration</a></p>
+  <p style="text-indent: 0;"><a href="agent-teams-coordination.html">Agent Teams' peer-to-peer messaging enables production coordination patterns</a></p>
+  <p style="text-indent: 0;"><a href="orchestrator-transition.html">Addy Osmani's 8-level framework maps the conductor-to-orchestrator transition</a></p>
+  <p style="text-indent: 0;"><a href="swarm-diaries-lessons.html">Microsoft's Swarm Diaries document the failure modes of uncoordinated multi-agent development</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] casys.ai, "ACPX Multi-Agent Orchestration" (cmux integration section), casys.ai/blog/acpx-multi-agent-orchestration</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[2] manaflow-ai/cmux, GitHub repository, github.com/manaflow-ai/cmux</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[3] Ghostty terminal, libghostty rendering engine documentation, ghostty.org/docs</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999;">The Radar</a> &middot; Agentic Coding &middot; March 31, 2026
+</footer>
+
+</body>
+</html>

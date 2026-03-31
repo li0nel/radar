@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Anthropic Code Review</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Anthropic Code Review</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">CODE REVIEW</div>
+  <div class="headline">Anthropic Code Review dispatches parallel agents with under 1% false positive rate</div>
+
+  <p>Anthropic Code Review shipped on March 9, 2026, and the architecture is worth dissecting because it represents the first production-grade implementation of multi-agent code analysis where the agents coordinate to suppress false positives rather than amplify them. The system runs as a GitHub integration: when a PR is opened or updated, it dispatches multiple Claude agents in parallel, each assigned to analyze different sections of the changeset. These agents produce independent findings, which are then cross-verified against each other and against the broader codebase context. Findings that survive cross-verification are severity-ranked, and the final output is one summary comment on the PR plus inline comments on specific lines. The entire pipeline runs in roughly 20 minutes for a typical PR.</p>
+
+  <p>The numbers from internal testing are the headline story. 54% of PRs receive substantive comments&mdash;comments that identify real issues requiring action, not style nitpicks or formatting suggestions. This is up from 16% in earlier iterations, which tells you the cross-verification filter is doing serious work. Under 1% of findings are marked incorrect by the reviewing engineer, which is a false positive rate low enough to build trust. For large PRs (1000+ lines), 84% receive findings with an average of 7.5 issues per PR. For small PRs (under 100 lines), only 31% receive findings, which is the correct behavior&mdash;small, focused changes simply have fewer opportunities for error.</p>
+
+  <p>The class of bug it catches is the one that matters most: contextual errors. Code that is syntactically valid, passes type checking, and would even pass most unit tests, but is logically wrong given the broader system context. The canonical example from internal testing is a one-line production change that would have silently broken authentication. The change was a refactor of a function signature&mdash;perfectly valid in isolation. But the function was called in an auth middleware path where the argument order mattered for security, and the refactored signature swapped two parameters of the same type. No compiler would catch it. No type checker would catch it. A unit test for the function in isolation would pass. But the auth check would silently succeed for any input.</p>
+
+  <p>A second example that circulated in the engineering community: a type mismatch in a ZFS encryption module that would have silently wiped the encryption key cache on every sync operation. The code compiled, the tests passed (because the test fixture used a fresh cache that was empty anyway), but in production with a populated cache, every sync would destroy the keys. The Code Review agent caught this because it analyzed the interaction between the sync function and the cache lifecycle, not just the diff in isolation.</p>
+
+  <p>The architecture deserves closer examination. The parallel dispatch is not random&mdash;agents are assigned sections based on a dependency graph extracted from the diff. Files that import from each other get analyzed by the same agent or by agents that share their findings before cross-verification. This means the system understands that a change to <code>auth/middleware.ts</code> is related to a change to <code>auth/types.ts</code> even if they appear in different hunks. The cross-verification step is where most false positives die: Agent A flags something, Agent B has context that explains why it is actually correct, the finding gets dropped. This is fundamentally different from a single-pass review where the reviewer has to hold all context simultaneously.</p>
+
+  <p>The severity ranking uses four tiers: critical (will cause data loss, security breach, or crash in production), high (logic error that will produce incorrect results), medium (code smell, performance issue, or maintainability concern), and low (style, naming, documentation). The summary comment includes a breakdown by severity. Inline comments are placed on the exact line where the issue is, with an explanation that references the broader context&mdash;not just "this looks wrong" but "this conflicts with the invariant established in <code>src/core/cache.ts:142</code>."</p>
+
+  <p>Cost and access constraints matter. At $15&ndash;25 per PR in token costs, this is not cheap for high-volume repositories. A team pushing 20 PRs per day is looking at $300&ndash;500/day, or roughly $7,500&ndash;12,500/month. That is a line item that needs explicit budgeting. The system requires a Team or Enterprise plan&mdash;it does not work with individual Pro subscriptions, and it cannot be run locally. This is a deliberate architectural choice: the multi-agent coordination runs on Anthropic's infrastructure, not yours.</p>
+
+  <p>Critically, it will not approve PRs. It comments, it flags, it severity-ranks, but the green checkmark still requires a human. This is an opinionated design decision that some teams will find frustrating (why can it not auto-approve if it finds zero issues?) but it is the correct one. The false negative rate&mdash;things it misses&mdash;is not zero, and auto-approval would create a false sense of security. The system is a reviewer, not an approver.</p>
+
+  <p>For developers who cannot access Code Review (solo developers, open-source projects, teams on lower-tier plans), the open-source alternatives are worth evaluating. <code>toriihq/claude-review-action</code> (31 stars, MIT license) is the most direct equivalent: a GitHub Action that runs Claude against your PR diff and posts comments. It is single-agent, not multi-agent, so it lacks the cross-verification that drives the low false positive rate. But for straightforward reviews it is functional and free. <code>altinukshini/claude-code-pr-reviewer</code> takes a similar approach with slightly different prompt engineering.</p>
+
+  <p>The Claude Code GitHub Action (officially maintained by Anthropic, free for Claude Code subscribers) offers a lighter-weight review mode. It runs a single Claude Code session against the PR diff with a review-oriented system prompt. The analysis is less thorough than dedicated Code Review&mdash;no parallel agents, no cross-verification&mdash;but it catches surface-level issues and is a reasonable Gate 2 for teams that cannot justify the $15&ndash;25/PR cost.</p>
+
+  <p>Building your own multi-agent reviewer is feasible if you understand the subagent pattern. The approach: write a Claude Code skill that receives a diff, splits it into sections based on file dependencies, spawns one subagent per section with instructions to review that section for logic errors and security issues, collects findings, runs a final subagent that cross-verifies all findings against each other, and outputs a consolidated report. The key implementation detail is the cross-verification step&mdash;without it, you get the 16% substantive rate, not the 54% rate. The cross-verifier needs access to all findings plus the full codebase context to distinguish genuine issues from false positives.</p>
+
+  <p>A minimal implementation looks like this:</p>
+
+<pre>// Skill: /review-pr
+// 1. Get the diff
+const diff = await getDiff();
+// 2. Split by dependency clusters
+const sections = clusterByImports(diff);
+// 3. Spawn parallel review agents
+const findings = await Promise.all(
+  sections.map(s =&gt; spawnSubagent({
+    prompt: `Review this diff section for logic errors,
+    security issues, and architectural inconsistencies.
+    Codebase context: ${s.relatedFiles}`,
+    diff: s.hunks
+  }))
+);
+// 4. Cross-verify
+const verified = await spawnSubagent({
+  prompt: `Given these findings from parallel reviewers,
+  eliminate false positives by cross-referencing.
+  Only keep findings that are genuinely incorrect
+  given the full context.`,
+  findings: findings.flat(),
+  fullDiff: diff
+});
+// 5. Format and post
+postReviewComments(verified);</pre>
+
+  <p>The gap between this DIY approach and Anthropic's managed service is primarily in the dependency graph construction (theirs is more sophisticated) and the training data for cross-verification (theirs has been tuned on millions of internal reviews). But for a team that needs code review AI and cannot justify the managed service cost, a subagent-based skill that follows this pattern will catch the majority of contextual bugs that a single-pass review misses.</p>
+
+  <p>One final operational note: Code Review's 20-minute execution time means it does not work well as a blocking gate for fast-iteration workflows. If your team expects review feedback within 2&ndash;3 minutes of pushing, this will feel slow. The pattern that works is: push PR, continue working on something else, come back to the review comments when they arrive. Treat it like a human reviewer who takes 20 minutes to respond, not like a linter that responds in seconds.</p>
+
+  <p class="relevance">If you are on Team/Enterprise, enable Code Review and let the numbers speak for themselves. If you are solo or on Pro, build the subagent review skill above&mdash;it will not match the managed service's false positive rate but it will catch the contextual bugs that tests miss, which is the entire value proposition.</p>
+
+  <h3 style="font-size: 13px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #999;">Related</h3>
+  <p style="text-indent: 0;"><a href="three-gate-quality.html">The three-gate pattern (tests + AI review + human approval)</a></p>
+  <p style="text-indent: 0;"><a href="stop-hooks-completion.html">Stop hooks as the missing "done" gate</a></p>
+  <p style="text-indent: 0;"><a href="spec-driven-development.html">Spec-driven development pipeline</a></p>
+
+  <h3 style="font-size: 13px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #999;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] claudefa.st &mdash; Code Review guide and configuration reference</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[2] dev.to &mdash; "Anthropic Code Review: Architecture and Performance" (March 2026)</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[3] umesh-malik.com &mdash; "Setting Up Anthropic Code Review for Your Team" guide</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[4] reddit.com/r/ClaudeAI &mdash; Code Review launch announcement and discussion thread</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[5] github.com/toriihq/claude-review-action &mdash; Open-source Claude PR review action (MIT, 31 stars)</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999; text-decoration: none;">The Radar</a> &middot; Agentic Coding &middot; Anthropic Code Review
+</footer>
+
+</body>
+</html>

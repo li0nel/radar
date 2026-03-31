@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Conductor-to-Orchestrator Transition</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Orchestration &middot; March 31, 2026</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">Orchestration</div>
+  <div class="headline">Addy Osmani's 8-level framework maps the conductor-to-orchestrator transition</div>
+
+  <p>Steve Yegge published a rough maturity model for AI-assisted development in late 2025. Addy Osmani refined it into an 8-level framework and presented it at O'Reilly's AI CodeCon in February 2026. The framework is useful not because it's definitive&mdash;maturity models never are&mdash;but because it gives precise language to the transitions that practitioners feel but cannot articulate. The gap between "I use Claude Code effectively" and "I orchestrate multiple agents on a feature" is not a gap in tool knowledge. It's a gap in working methodology, and the framework maps exactly where the methodology shifts happen.</p>
+
+  <p>The eight levels, compressed: Level 1 is code completion (Copilot inline suggestions, accept/reject). Level 2 is chat-assisted coding (asking questions about code, getting snippets). Level 3 is prompt-driven generation (generating whole functions or files from natural language). Level 4 is agent-assisted development (single agent with tool use&mdash;edits files, runs tests, reads errors, iterates). Level 5 is the conductor model (human directs one agent through a complex multi-step task, providing course corrections). Level 6 is the orchestrator model (human decomposes work across multiple agents, monitors progress, handles integration). Level 7 is autonomous pipelines (agents work unsupervised on well-defined tasks, human reviews output). Level 8 is self-improving systems (agents modify their own workflows, tools, and evaluation criteria based on outcomes).</p>
+
+  <p>Most developers reading this are at level 4 or 5. They use Claude Code or a similar agent daily. They've built up prompt patterns and workflow habits. They can drive a single agent through a complex feature from start to finish. The question is: what does it take to move to level 6, and is it worth it?</p>
+
+  <p>The transition from level 5 to level 6 is where the three walls appear. Osmani identified these as the barriers that prevent natural progression. The first wall is context overload: a single agent working on a large feature eventually exhausts its context window, starts forgetting earlier decisions, and produces inconsistent output. You can mitigate this with memory files, compaction strategies, and session handoffs, but you're fighting a fundamental constraint. The agent's working memory has a ceiling, and complex features exceed it.</p>
+
+  <p>The second wall is the absence of specialization. A single agent playing every role&mdash;architect, backend engineer, frontend engineer, test writer, DevOps engineer&mdash;is a generalist being asked to be an expert in everything simultaneously. It can do each role adequately, but it cannot maintain the depth of context that specialization requires. When you ask it to switch from writing a database migration to implementing a React component, it carries the database context forward as noise and loses the frontend context that was established in an earlier part of the conversation. Role-switching within a single context window is expensive because the agent must mentally reload domain-specific patterns each time.</p>
+
+  <p>The third wall is the lack of coordination infrastructure. Even if you could solve context and specialization by running multiple agents, you need mechanisms for those agents to share artifacts, agree on contracts, resolve conflicts, and integrate their work. Without this infrastructure, multiple agents produce work that is locally correct but globally incoherent&mdash;the merge failure that Microsoft's Swarm Diaries documented extensively.</p>
+
+  <p>The conductor model (level 5) is characterized by a single agent, synchronous human interaction, and the context window as the ceiling. You are the conductor of an orchestra with one musician. You tell Claude Code what to do, it does it, you review, you redirect. The throughput is limited by the speed of the single agent and the bandwidth of the human-agent interaction. The human provides the strategic direction and quality control; the agent provides the implementation speed. This works remarkably well for tasks that fit within one context window and one domain.</p>
+
+  <p>The orchestrator model (level 6) is characterized by multiple agents, asynchronous work, and the codebase as the canvas instead of the context window. You are no longer conducting a single musician&mdash;you're managing a chamber ensemble. You decompose the feature into independent workstreams, assign each to a specialized agent, define the interfaces between workstreams, monitor progress, and integrate the results. The throughput is potentially N&times; the conductor model (where N is the number of agents), but the overhead of decomposition, coordination, and integration reduces the actual multiplier.</p>
+
+  <p>The skills shift at the conductor-to-orchestrator boundary is the most important insight in the framework. At level 5, the primary skill is effective human-agent interaction: writing good prompts, providing useful corrections, understanding the agent's strengths and weaknesses. At level 6, the primary skill is decomposition. You spend less time interacting with any individual agent and more time deciding: What are the independent units of work? What are the interfaces between them? Which agent gets which unit? What are the acceptance criteria for each unit? How do I verify that the integrated result is correct?</p>
+
+  <p>This is a genuine paradigm shift, not a gradual evolution. The developer who is excellent at level 5 may struggle at level 6 because the skills don't transfer directly. At level 5, you succeed by being a good collaborator with the agent&mdash;providing rich context, catching errors early, steering the conversation productively. At level 6, you succeed by being a good architect and project manager&mdash;creating clean decompositions, writing precise interface contracts, defining unambiguous acceptance criteria. The former is an interactive, real-time skill. The latter is a planning, up-front design skill. They're different cognitive modes.</p>
+
+  <p>Osmani's practical advice for the level 5 to 6 transition has three phases. Phase one: practice decomposition on features you've already built. Take a completed feature and retroactively decompose it into independent workstreams. Identify the interfaces. Ask yourself: could three agents have built this in parallel without talking to each other, given the right interface contracts? If yes, you have a clean decomposition. If no, identify what would need to change to make it parallelizable. This exercise builds the muscle without the risk of a live multi-agent setup.</p>
+
+  <p>Phase two: start with fire-and-forget parallelism. Keep your primary agent for the main workstream and dispatch independent tasks (test writing, documentation, linting fixes, dependency updates) to secondary agents. This is the lowest-risk form of multi-agent work because the secondary tasks have no dependencies on the primary work. You're not orchestrating&mdash;you're delegating. But you're building the habit of thinking "this task is independent and can be parallelized" instead of "I'll do this after I finish the main feature."</p>
+
+  <p>Phase three: attempt a coordinated multi-agent feature. Pick a feature with at least two clearly independent domains (e.g., API + frontend) and assign each to a separate agent. Define the interface contract up front (API types, endpoint signatures, error formats). Have each agent work against the contract. Integrate at the end. This is where you'll discover whether your decomposition was clean, whether your contracts were precise enough, and whether your integration strategy works. The first attempt usually fails, and that's the point&mdash;you learn what clean decomposition requires by experiencing the consequences of imprecise decomposition.</p>
+
+  <p>Quality gates for orchestrated work differ from quality gates for single-agent work. In the conductor model, you review code as it's produced&mdash;a continuous, inline review process. In the orchestrator model, you review integrated outputs at defined checkpoints. The recommended gate structure: each agent runs its own unit tests before declaring completion (gate 1), the lead agent runs integration tests after merging all branches (gate 2), an AI review agent examines the integrated diff for consistency, security, and style (gate 3), and the human does a final review of the integrated pull request (gate 4). Gates 1-3 are automated; gate 4 is human. The human review at the end is non-negotiable&mdash;the cost of a bug in orchestrated code is higher than in single-agent code because the blast radius spans multiple domains.</p>
+
+  <p>The level 6 to 7 transition (orchestrator to autonomous pipelines) is further out for most practitioners, but Osmani sketches it: at level 7, the human doesn't monitor individual agent sessions. Instead, they define a pipeline (spec &rarr; decompose &rarr; implement &rarr; test &rarr; review &rarr; merge), configure the quality gates, and trigger the pipeline. Agents execute the pipeline end-to-end. The human reviews the final output and the pipeline's decision log. This requires trust in the quality gates and a mature decomposition practice&mdash;you can't automate what you haven't first done manually enough times to understand the failure modes.</p>
+
+  <p>Level 8 (self-improving systems) is speculative. Osmani described it as agents that modify their own prompts, tool configurations, and evaluation criteria based on observed outcomes. If a particular test-writing prompt consistently produces tests that miss edge cases, the system adjusts the prompt. If a particular decomposition strategy leads to merge conflicts, the system adjusts the decomposition rules. This requires a feedback loop from production outcomes back to agent configuration, which no current tool provides out of the box. It's the theoretical endpoint, not a practical target for 2026.</p>
+
+  <p>The framework's blind spot is team dynamics. It describes individual developer progression, but organizations don't adopt AI uniformly. A team where one developer is at level 6 and three are at level 3 has different challenges than a team uniformly at level 5. The level 6 developer creates multi-agent workflows that produce PRs the level 3 developers can't effectively review because they don't understand the orchestration decisions that produced the code. Osmani acknowledged this in the Q&amp;A but didn't offer a solution beyond "teams should progress together," which is aspirational but not practical.</p>
+
+  <p>Despite this limitation, the framework's value is in naming the transitions and the skill shifts. When you feel stuck despite using AI tools daily, the framework helps diagnose whether you're hitting the context wall (invest in memory and session management), the specialization wall (invest in multi-agent setup), or the coordination wall (invest in decomposition and integration practices). Different walls require different investments, and the framework prevents you from spending effort on the wrong one.</p>
+
+  <p class="relevance">Self-assess honestly: if you're at level 5 (conductor, single agent, complex tasks), the highest-leverage next investment is decomposition practice, not more tools. Take your next medium-sized feature and decompose it on paper before touching any agent. Define the interfaces between workstreams. Then build it with one agent but evaluate whether the decomposition would have supported parallel agents. That exercise is the bridge to level 6.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="agent-teams-coordination.html">Agent Teams' peer-to-peer messaging enables production coordination patterns</a></p>
+  <p style="text-indent: 0;"><a href="acpx-cross-vendor-orchestration.html">ACP protocol and ACPX replace PTY scraping for cross-vendor agent orchestration</a></p>
+  <p style="text-indent: 0;"><a href="swarm-diaries-lessons.html">Microsoft's Swarm Diaries document the failure modes of uncoordinated multi-agent development</a></p>
+  <p style="text-indent: 0;"><a href="cmux-multi-agent-terminal.html">cmux provides the missing UI layer for multi-agent terminal workflows</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] Addy Osmani, "From Code Agents to Code Orchestras," addyosmani.com/blog/code-agent-orchestra/</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[2] O'Reilly AI CodeCon, February 2026, Osmani keynote session recording</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[3] Steve Yegge, "The Death of Coding," sourcegraph.com/blog/the-death-of-coding (original maturity model)</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999;">The Radar</a> &middot; Agentic Coding &middot; March 31, 2026
+</footer>
+
+</body>
+</html>

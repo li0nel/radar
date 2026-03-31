@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Spec-Driven Development</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Spec-Driven Development</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">WORKFLOW DESIGN</div>
+  <div class="headline">Spec-driven development is the matured form of vibe coding</div>
+
+  <p>Something converged in early 2026 that is worth naming explicitly: multiple independent practitioners, tool builders, and teams arrived at the same development pipeline without coordinating. Matt Pocock published his "7 phases of AI-assisted development" video (32.8K views and climbing). The Codegen team published "Agentic workflows that actually ship." SpecWeave launched with spec-first as its core premise. George Violaris published his plan-file workflow. These are not variations on a theme&mdash;they are the same pipeline, discovered independently, which is the strongest possible evidence that the pipeline is correct.</p>
+
+  <p>The pipeline, stripped to its essence: brainstorm &rarr; spec &rarr; plan &rarr; implement &rarr; review. Five phases, in order, each producing an artifact that feeds the next. The critical insight is that implementation is Phase 4 of 5. Not Phase 1. Not Phase 2. Phase 4. Most of the work&mdash;and virtually all of the value&mdash;happens before a single line of code is written.</p>
+
+  <p><strong>Matt Pocock's 7 phases</strong> are the most granular articulation. Phase 1: Idea (what do you want to exist?). Phase 2: Research (what already exists that is relevant? what are the constraints?). Phase 3: Prototype (quick and dirty proof of concept to validate feasibility). Phase 4: PRD&mdash;Product Requirements Document (the formal spec: what it does, what it does not do, edge cases, acceptance criteria). Phase 5: Implementation Planning (how to build it: file changes, API contracts, data migrations, task decomposition). Phase 6: Implementation (the actual coding). Phase 7: Review (does it match the PRD?).</p>
+
+  <p>Pocock's framing is interesting because he distinguishes between prototype (Phase 3) and implementation (Phase 6). The prototype is disposable. It exists to answer the question "is this feasible?" and nothing else. You throw it away. The implementation is durable. It exists to ship. Conflating the two&mdash;which is what "vibe coding" does by default&mdash;produces prototypes that accidentally become production code, with all the quality and maintainability problems that implies.</p>
+
+  <p>The prototype phase is also where you discover that your idea is impossible, impractical, or needs fundamental rethinking. Better to discover this in 30 minutes with a throwaway prototype than in 3 hours with production-quality code that has to be discarded. The prototype phase is cheap insurance against building the wrong thing well.</p>
+
+  <p><strong>The Codegen insight</strong> is the most operationally useful finding in the spec-driven literature. Their blog post, based on months of running AI agents against real codebases at scale, identifies the bottleneck: "The culprit is almost always context: the agent doesn't know enough about the codebase to make good decisions." Not model capability. Not prompt quality. Context.</p>
+
+  <p>This is a subtle but profound reframing. The conventional wisdom is that better models produce better code. The Codegen finding is that the same model produces dramatically better code when given more relevant context. A mediocre model with perfect context outperforms a superior model with incomplete context. This means the highest-leverage investment is not in model selection or prompt engineering&mdash;it is in context engineering. How do you get the right information in front of the agent at the right time?</p>
+
+  <p>The spec is the primary context delivery mechanism. A well-written spec tells the agent: what the feature should do (behavior), what it should not do (constraints), what already exists that is relevant (dependencies and interfaces), what "done" means (acceptance criteria), and what is unknown (open questions that need human input). Without the spec, the agent has to infer all of this from the codebase alone, which is like asking a new hire to build a feature by reading the source code with no onboarding, no requirements document, and no one to ask questions.</p>
+
+  <p>The Codegen team's practical recommendation: before starting any implementation, run an explicit "context gathering" phase where the agent reads relevant files, identifies interfaces, maps dependencies, and produces a summary of what it has learned. This summary becomes the foundation of the spec. The agent is better at reading code than writing requirements, so use it to read the codebase and then have the human validate and extend the summary into a full spec.</p>
+
+  <p><strong>Why implementation is the cheapest phase.</strong> This claim sounds provocative until you quantify the costs. A Phase 6 failure (implementation bug) costs one fix cycle: the agent or human identifies the bug, fixes it, and re-runs tests. Elapsed time: 5&ndash;30 minutes. A Phase 5 failure (bad plan) costs a rewrite of the implementation: the plan decomposed the work incorrectly, and the agent built components that do not fit together. Elapsed time: 1&ndash;3 hours. A Phase 4 failure (bad spec) costs a rewrite of the plan and the implementation: the spec defined the wrong behavior, and everything built on top of it is wrong. Elapsed time: 3&ndash;8 hours. A Phase 1 failure (bad idea) costs everything: you built the wrong thing entirely. Elapsed time: days.</p>
+
+  <p>The cost multiplier is roughly 10x per phase. A bug in implementation costs 1x. A bug in the plan costs 10x. A bug in the spec costs 100x. A bug in the idea costs 1000x. This is not new&mdash;it is the same cost curve that waterfall advocates have cited for decades. What is new is that agentic coding makes the cost curve steeper, because agents implement faster than humans. An agent that implements a bad spec produces a larger volume of wrong code in less time, which means more code to review, more code to discard, and more time wasted. Speed without direction is expensive.</p>
+
+  <p><strong>Separating brainstorm from spec from plan.</strong> The three phases before implementation serve different cognitive purposes and should not be collapsed.</p>
+
+  <p>Brainstorm (Phase 1&ndash;2 in Pocock's model) is divergent. You are exploring the space. What could this feature be? What are the options? What are the trade-offs? What has been tried before? What are the constraints from the existing codebase? The output is a feature map: a messy, incomplete, exploratory document that captures the possibility space. The brainstorm is intentionally unconstrained. You are not making decisions; you are generating options.</p>
+
+  <p>Spec (Phase 3&ndash;4) is convergent. You are collapsing the possibility space into a single, specific definition. The feature does X. It does not do Y. The edge cases are handled as follows. The acceptance criteria are these specific, testable conditions. The spec is a contract. It should be precise enough that two independent agents, implementing the spec without communicating, would produce functionally equivalent code. If the spec is ambiguous enough that two implementations could diverge meaningfully, the spec is not done.</p>
+
+  <p>Plan (Phase 5) is decomposition. The spec says what to build. The plan says how to decompose the work into implementable units. Which files to change. What order to make the changes. Where the integration points are. What can be parallelized and what must be sequential. The plan is specific to the codebase&mdash;it references real file paths, real function names, real data models. The spec is abstract (behavior); the plan is concrete (changes).</p>
+
+  <p>Collapsing brainstorm and spec is the most common mistake. The developer starts writing a spec before fully exploring the space, commits to the first approach that seems reasonable, and misses better alternatives or critical constraints. The result is a spec that is precise but wrong&mdash;it precisely defines a suboptimal or infeasible approach. Separating brainstorm from spec gives you permission to explore without committing, which produces better specs.</p>
+
+  <p>Collapsing spec and plan is the second most common mistake. The developer writes a spec that is half behavior definition and half implementation plan. The behavior and the implementation become entangled, and changing one requires changing the other. A clean spec describes what the feature does without specifying how. A clean plan describes how to implement the spec without redefining what. This separation lets you change the plan (different implementation approach) without changing the spec (same behavior), and vice versa.</p>
+
+  <p><strong>How to structure each phase with an agent.</strong> Brainstorm: give the agent the codebase context and a rough description of the feature. Ask it to produce a feature map: what exists, what changes, what is created, what are the options, what are the risks. Review the feature map. Add your own knowledge. Iterate until the space feels fully explored.</p>
+
+  <p>Spec: take the feature map and instruct the agent to produce a spec with five sections: objective (observable behavior), constraints (what it must not do), dependencies (what it relies on), acceptance criteria (testable conditions for done), and open questions (unresolved decisions). Review the spec against the feature map. Every option from the brainstorm should either be reflected in the spec or explicitly rejected. Every constraint from the codebase should appear in the constraints section. Iterate until the spec is tight enough that implementation is mechanical.</p>
+
+  <p>Plan: take the spec and instruct the agent to produce an implementation plan. Which files change. What functions are added, modified, or removed. What the data flow looks like. What the test strategy is. What order the changes should be made. The plan should be specific enough that a different agent (or a junior developer) could follow it step by step. Review the plan against the spec. Every acceptance criterion should map to at least one change in the plan. Every change in the plan should trace back to something in the spec.</p>
+
+  <p>Implementation: give the agent the spec and the plan. Instruct it to implement the plan, referencing the spec for behavior and the plan for structure. The agent should not need to make design decisions&mdash;those were made in earlier phases. If it encounters an ambiguity, it should flag it rather than guess.</p>
+
+  <p>Review: compare the implementation against the spec and plan. Does the code satisfy every acceptance criterion? Does it violate any constraint? Are there changes that do not trace back to the plan? Are there plan items that were not implemented?</p>
+
+  <p><strong>The spec-driven pipeline and vibe coding are not opposites.</strong> Vibe coding is Phase 1: you have an idea, you start building, you see what happens. Spec-driven development acknowledges that Phase 1 is valuable for exploration but recognizes that exploration is not construction. The pipeline takes the energy and intuition of vibe coding (brainstorm, prototype) and channels it through the discipline of spec writing (spec, plan) before committing to implementation. Spec-driven development is vibe coding that has learned from its mistakes.</p>
+
+  <p>The community is converging on this pipeline because it is the natural consequence of a simple observation: agents are excellent implementers and terrible requirements gatherers. They will build exactly what you tell them to build, with impressive speed and reasonable quality. The problem is never "the agent can't build it." The problem is always "the agent built the wrong thing" or "the agent built it the wrong way." The spec-driven pipeline addresses both by front-loading the decisions that determine what "the right thing" and "the right way" mean, and encoding those decisions in artifacts that the agent can reference during implementation.</p>
+
+  <p class="relevance">The maturity progression is clear: vibe coding (just build) to plan files (build against a contract) to spec-driven development (brainstorm, spec, plan, build, review as explicit sequential phases). Each step adds discipline to the phase where discipline has the highest return. If you are already using plan files, the next step is formalizing the brainstorm and spec phases as separate, reviewable artifacts.</p>
+
+  <h3 style="font-size: 13px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #999;">Related</h3>
+  <p style="text-indent: 0;"><a href="plan-files-workflow.html">Plan files in the repo beat tickets for agentic development</a></p>
+  <p style="text-indent: 0;"><a href="three-gate-quality.html">The three-gate pattern (tests + AI review + human approval)</a></p>
+  <p style="text-indent: 0;"><a href="anthropic-code-review.html">Anthropic Code Review for Gate 2</a></p>
+  <p style="text-indent: 0;"><a href="stop-hooks-completion.html">Stop hooks enforce acceptance criteria from specs</a></p>
+
+  <h3 style="font-size: 13px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #999;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] Matt Pocock &mdash; "7 Phases of AI-Assisted Development" (YouTube, 32.8K views)</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[2] codegen.com/blog &mdash; "Agentic Workflows That Actually Ship" (2026)</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[3] dev.to &mdash; "Spec-Driven Development: Why Your AI Needs a Contract" (2026)</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[4] spec-weave.com &mdash; Spec-first development tooling and methodology</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999; text-decoration: none;">The Radar</a> &middot; Agentic Coding &middot; Spec-Driven Development
+</footer>
+
+</body>
+</html>

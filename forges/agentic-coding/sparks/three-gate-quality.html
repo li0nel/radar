@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Three-Gate Quality Pattern</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Three-Gate Quality</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">QUALITY GATES</div>
+  <div class="headline">The three-gate pattern (tests + AI review + human approval) is the emerging production standard</div>
+
+  <p>Across every serious production write-up of agentic coding in 2025&ndash;2026, the same quality architecture keeps appearing under different names. SpecWeave calls them "quality gates." NousResearch's hermes-agent calls it "fail-closed review." Individual practitioners describe it as "my CI pipeline for AI code." Strip the branding and the pattern is identical: three gates, in order, each catching a distinct failure class that the others miss. Gate 1 is automated tests. Gate 2 is AI code review. Gate 3 is human approval. No gate is optional. No gate substitutes for another.</p>
+
+  <p><strong>Gate 1: Automated Tests.</strong> This is the gate most teams already have. Pre-commit hooks run unit tests, integration tests, or end-to-end tests before code lands. In the agentic context, these tests serve a specific purpose: they catch behavioral regressions. The agent changed function A, and function B (which depends on A) now returns the wrong result. The test for B fails. The agent is forced to fix the regression before proceeding.</p>
+
+  <p>The limitation of Gate 1 in isolation is well-documented but under-appreciated. Tests verify behavior against a specification encoded in the test itself. If the specification is wrong, the test is wrong, and the code passes despite being incorrect. If the specification is incomplete (which it always is), the test suite has gaps, and incorrect code passes through them. More critically for agentic workflows: the agent writes both the code and the tests. An agent that misunderstands the requirement will write code that implements the misunderstanding and tests that verify the misunderstanding. Gate 1 passes. The code is wrong.</p>
+
+  <p>This is not a theoretical concern. It is the primary failure mode of test-only quality gates in agentic workflows. The agent generates a function that handles the happy path but silently drops error cases. It also generates tests that only cover the happy path. All tests pass. Code review (human or AI) catches it immediately because a reviewer reads the spec and the code, not just the code and its tests.</p>
+
+  <p>Gate 1's strength is speed and determinism. Tests run in seconds to minutes. They produce binary pass/fail results. They catch the entire class of "code that used to work no longer works." For pre-commit hooks specifically, they prevent broken code from ever reaching the repository. This is foundational. But it is not sufficient.</p>
+
+  <p><strong>Gate 2: AI Code Review.</strong> This is the gate that most teams are missing and that provides the highest marginal improvement when added. AI code review catches what tests cannot: code that is syntactically correct, passes all tests, but is logically wrong, insecure, or architecturally inconsistent with the rest of the codebase.</p>
+
+  <p>There are two implementation paths. The managed path is Anthropic's Code Review service (Team/Enterprise plans, $15&ndash;25/PR, parallel multi-agent architecture, under 1% false positive rate). The self-hosted path is a subagent-based review skill that you build and run locally or in CI.</p>
+
+  <p>The subagent approach works as follows. When a PR is ready for review (or when the agent believes it is done with a task), a fresh Claude subagent is spawned with a clean context. This subagent receives: the diff, the relevant surrounding code (files that import or are imported by changed files), the project's architectural conventions (from CLAUDE.md or equivalent), and explicit review criteria. The subagent produces a structured review: a list of findings, each with a severity (critical/high/medium/low), a location, and an explanation referencing the broader context.</p>
+
+<pre>// Gate 2 implementation as a Claude Code skill
+async function reviewGate(diff, context) {
+  const review = await spawnSubagent({
+    system: `You are a code reviewer. Review this diff for:
+      1. Logic errors (correct syntax, wrong behavior)
+      2. Security issues (auth bypass, injection, data exposure)
+      3. Architectural inconsistency (violates patterns in the codebase)
+      4. Missing error handling
+      5. Race conditions or state management bugs
+      Output: JSON array of findings with severity, file, line, description.
+      If no issues found, output empty array.`,
+    user: `Diff:\n${diff}\n\nContext files:\n${context}\n\nProject conventions:\n${conventions}`
+  });
+
+  const findings = JSON.parse(review);
+  const critical = findings.filter(f =&gt; f.severity === 'critical');
+
+  if (critical.length &gt; 0) {
+    return { pass: false, findings, message: `${critical.length} critical issues found` };
+  }
+  return { pass: true, findings, message: `${findings.length} non-critical findings` };
+}</pre>
+
+  <p>The critical design decision is what blocks the merge. The recommended policy: critical findings block. High findings warn but do not block. Medium and low findings are informational. This mirrors how human code review works&mdash;you do not reject a PR because of a variable naming suggestion, but you do reject it for an authentication bypass.</p>
+
+  <p>Why does a fresh subagent work better than asking the original agent to review its own work? The same reason you do not proofread your own writing immediately after writing it. The original agent has a context that is biased toward its own implementation decisions. It has spent thousands of tokens building up a mental model of why its approach is correct. A fresh subagent has no such bias. It reads the code as a new reviewer would, with fresh eyes and no investment in the existing approach.</p>
+
+  <p>The NousResearch hermes-agent project (PR #406 specifically) implements this as a "fail-closed review" pattern. Before any agent-generated code is merged, a separate review agent evaluates it. If the review agent cannot confirm the code is correct, the merge is blocked. The default is closed (blocked), not open (allowed). This inversion is important: in a fail-open system, a review agent crash or timeout results in unreviewed code landing. In fail-closed, a crash or timeout results in a blocked merge that a human must manually approve. Fail-closed is the correct default for production systems.</p>
+
+  <p><strong>Gate 3: Human Approval.</strong> The final gate is a human reviewing the PR and clicking approve. No AI system should auto-approve. This is not because AI review is bad&mdash;it is because the remaining failure class (code that works, is correct, but does not match the actual intent or product direction) requires human judgment that no current AI system reliably provides.</p>
+
+  <p>Gate 3 catches: "We actually wanted this to be a dropdown, not a modal." "This technically implements the spec but the spec was wrong." "This is correct for v1 but will make v2 impossible." "The business requirement changed yesterday and hasn't been updated in the spec." These are failures of intent alignment, and they require a human who understands the broader product context.</p>
+
+  <p>The role of Gate 3 changes when Gates 1 and 2 are solid. Without AI review, human reviewers spend most of their time catching bugs&mdash;the exact bugs that Gate 2 catches automatically. With Gate 2 in place, the human reviewer can focus entirely on intent alignment, architectural direction, and product fit. This is a better use of human time and produces better reviews. The human is no longer exhausted from bug-hunting by the time they get to the important questions.</p>
+
+  <p><strong>What each gate catches that the others miss.</strong> This is the critical table:</p>
+
+<pre>Failure class                    Gate 1   Gate 2   Gate 3
+--------------------------------------------------------------
+Behavioral regression            YES      maybe    unlikely
+Syntax/type error                YES      YES      unlikely
+Logic error (tests pass)         NO       YES      maybe
+Security vulnerability           NO       YES      maybe
+Architectural drift              NO       YES      YES
+Missing error handling           partial  YES      maybe
+Intent mismatch                  NO       NO       YES
+Product direction conflict       NO       NO       YES
+Spec was wrong                   NO       NO       YES</pre>
+
+  <p>The pattern is clear: Gate 1 catches regressions. Gate 2 catches correctness. Gate 3 catches intent. Remove any gate and you lose coverage of an entire failure class.</p>
+
+  <p><strong>SpecWeave's implementation</strong> adds enforcement rigor. In SpecWeave, quality gates are not suggestions&mdash;they are hard requirements encoded in the project configuration. An increment (SpecWeave's unit of work) cannot be closed until all three gates have passed. The spec file tracks which gates have been cleared, and the system prevents advancing to the next increment until the current one is fully gated. This solves the "I'll come back and review it later" problem: you cannot start new work until the review is done.</p>
+
+  <p><strong>The diminishing returns of Gate 1 alone</strong> deserve quantification. In a Gate 1&ndash;only workflow, the agent writes code that passes all tests approximately 85&ndash;90% of the time on first attempt (assuming a reasonable test suite). Of the remaining 10&ndash;15%, most are caught and fixed in one or two retry loops. The net result is that nearly all committed code passes tests. Sounds good. But "passes tests" and "is correct" overlap only partially. In internal studies at multiple companies, 15&ndash;25% of agent-generated code that passes all tests contains issues that would be caught by a careful human review: logic errors, security issues, missing edge cases, or architectural inconsistencies. Gate 2 catches 70&ndash;80% of these. Gate 3 catches most of the remainder. The three-gate system reduces the defect-escape rate from 15&ndash;25% (Gate 1 only) to 2&ndash;5% (all three gates).</p>
+
+  <p><strong>Implementation order matters.</strong> If you have nothing, add Gate 1 first (tests). If you have tests, add Gate 2 next (AI review). If you have both, formalize Gate 3 (human review with explicit approval criteria, not just "LGTM"). Each gate is most effective when the previous gates are already in place, because each gate's workload is reduced by the gates before it. The AI reviewer does not waste findings on test failures (Gate 1 already caught those). The human reviewer does not waste time on logic errors (Gate 2 already caught those).</p>
+
+  <p>One operational note: the gates should run in order, not in parallel. Gate 1 first (fast, cheap, catches the obvious). If Gate 1 fails, do not run Gate 2 (why pay for AI review of code that does not even pass tests?). If Gate 1 passes, run Gate 2. If Gate 2 passes, notify the human reviewer for Gate 3. This ordering minimizes cost and maximizes signal quality at each stage.</p>
+
+  <p class="relevance">If you have tests (Gate 1) and human review (Gate 3) but no AI review (Gate 2), that is the gap. Build a subagent review skill or enable Anthropic Code Review. Gate 2 is where the highest marginal improvement lives because it catches the failure class that tests structurally cannot: code that works but is wrong.</p>
+
+  <h3 style="font-size: 13px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #999;">Related</h3>
+  <p style="text-indent: 0;"><a href="anthropic-code-review.html">Anthropic Code Review architecture and alternatives</a></p>
+  <p style="text-indent: 0;"><a href="stop-hooks-completion.html">Stop hooks as the missing "done" gate</a></p>
+  <p style="text-indent: 0;"><a href="spec-driven-development.html">Spec-driven development pipeline</a></p>
+  <p style="text-indent: 0;"><a href="plan-files-workflow.html">Plan files in the repo beat tickets</a></p>
+
+  <h3 style="font-size: 13px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #999;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] github.com/NousResearch/hermes-agent#406 &mdash; Fail-closed review pattern implementation</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[2] spec-weave.com &mdash; Quality gate enforcement in spec-driven workflows</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[3] botsee.io &mdash; "QA Gates for AI-Generated Code" (analysis of gate effectiveness)</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999; text-decoration: none;">The Radar</a> &middot; Agentic Coding &middot; Three-Gate Quality
+</footer>
+
+</body>
+</html>

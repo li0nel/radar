@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Stop Hooks</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Stop Hooks</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">QUALITY GATES</div>
+  <div class="headline">Stop hooks are the missing &ldquo;done&rdquo; gate that prevents premature completion</div>
+
+  <p>The most expensive failure mode in agentic coding is not wrong code&mdash;it is premature completion. The agent declares it is finished, the human trusts the declaration, and the session ends with work undone, edge cases unhandled, or acceptance criteria unmet. Tests catch some of this after the fact, but by then you have already context-switched away and the cost of re-engaging is high. Stop hooks exist to catch this failure at the moment it happens, before the session ends.</p>
+
+  <p>A Stop hook fires when Claude finishes responding&mdash;when it believes it has completed the current task and is about to return control to the user. The hook receives Claude's final response and the conversation context. If the hook's exit code is 2, Claude is forced to continue working. Any other non-zero exit code is treated as an error (logged but does not block). Exit code 0 means the stop is approved&mdash;Claude may finish. This is the entire mechanism: intercept the "I'm done" signal, evaluate whether done is actually done, and either allow or reject it.</p>
+
+  <p>There are four handler types for Stop hooks, each with different trade-offs in thoroughness, speed, and complexity.</p>
+
+  <p><strong>Command type</strong> is the simplest. It runs a shell command that inspects Claude's output or the codebase state. A regex check against the response text, a file existence check, a test suite execution. Fast (milliseconds to seconds for simple checks, longer for test suites), deterministic, and easy to debug. The limitation is expressiveness: a regex can check whether Claude mentioned running tests, but it cannot evaluate whether the tests are actually sufficient.</p>
+
+<pre>{
+  "hooks": {
+    "Stop": [{
+      "type": "command",
+      "command": "bash -c 'if ! grep -q \"All tests passed\" /tmp/claude-output; then exit 2; fi'"
+    }]
+  }
+}</pre>
+
+  <p><strong>Prompt type</strong> sends Claude's response to a fresh LLM evaluation. The hook specifies a prompt template, and the system creates a new, short-context LLM call to evaluate whether the stop is justified. The evaluator LLM sees the original task, Claude's response, and the hook's evaluation criteria. It responds with <code>{"ok": true}</code> or <code>{"ok": false, "reason": "..."}</code>. The reason is fed back to Claude as context for its continuation.</p>
+
+<pre>{
+  "hooks": {
+    "Stop": [{
+      "type": "prompt",
+      "prompt": "Evaluate if Claude should stop: $ARGUMENTS. Check: 1) All acceptance criteria from the original request are met. 2) Tests were actually run, not just mentioned. 3) Error handling covers the specified edge cases. 4) No TODO comments were left in the code."
+    }]
+  }
+}</pre>
+
+  <p>The prompt type is the sweet spot for most workflows. It adds 5&ndash;15 seconds of latency (one LLM call) and catches the broad category of "said it was done but wasn't." The <code>$ARGUMENTS</code> variable expands to the hook's configured arguments, which lets you customize the evaluation criteria per project or per task type. The evaluator LLM is a separate, fresh context&mdash;it does not share Claude's potentially confused or overloaded state, which is precisely why it catches things Claude missed.</p>
+
+  <p><strong>Agent type</strong> spawns a full subagent with tool access. The subagent can read files, run commands, grep the codebase, execute tests, and perform any verification that requires interacting with the filesystem or build system. This is the most thorough handler: it does not trust Claude's claims about what it did, it verifies them independently. "Claude says it added error handling to all three endpoints"&mdash;the agent subagent opens the three files and checks.</p>
+
+<pre>{
+  "hooks": {
+    "Stop": [{
+      "type": "agent",
+      "prompt": "Verify Claude's claimed changes: $ARGUMENTS. Open each file mentioned in the response and confirm the changes exist. Run the test suite and confirm all tests pass. Check for any TODO or FIXME comments that suggest incomplete work.",
+      "timeout": 60000
+    }]
+  }
+}</pre>
+
+  <p>The agent type has a default timeout of 60 seconds, which is generous for verification tasks but can be exceeded if the test suite is slow. The timeout is configurable. Agent-type hooks are the most expensive in both time and tokens&mdash;they spawn a full Claude session with tool use&mdash;but they are the only handler type that can verify claims against reality rather than just evaluating text.</p>
+
+  <p><strong>HTTP type</strong> sends the stop event to a remote endpoint. The endpoint receives Claude's response and returns a JSON verdict. This is useful for team-wide policies (a central server that enforces completion standards across all developers' sessions), integration with external systems (check that the deploy pipeline is green, check that the ticket was updated), or custom validation logic that is easier to maintain as a microservice than as a shell script.</p>
+
+  <p>The infinite loop trap is the critical implementation pitfall. If your Stop hook always returns exit code 2, Claude will never stop. It will keep trying to satisfy the hook, the hook will keep rejecting, and you will burn tokens until you manually kill the session or hit a context limit. This is not hypothetical&mdash;it is the most common failure mode when first implementing Stop hooks.</p>
+
+  <p>The solution is a <code>stop_hook_active</code> flag. When the Stop hook fires and rejects the stop (exit 2), it sets a flag in a known location (environment variable, temp file, or Claude's context via the reason message). The next time the Stop hook fires, it checks whether it already rejected a stop for this task. If it has already rejected once (or twice, depending on your tolerance), it allows the stop regardless and includes a note explaining what remained unverified. This bounds the loop to a configurable maximum number of iterations.</p>
+
+<pre>#!/bin/bash
+# stop-hook.sh - with loop prevention
+FLAG_FILE="/tmp/claude-stop-hook-count"
+COUNT=$(cat "$FLAG_FILE" 2>/dev/null || echo 0)
+MAX_RETRIES=2
+
+if [ "$COUNT" -ge "$MAX_RETRIES" ]; then
+  rm -f "$FLAG_FILE"
+  exit 0  # Allow stop after max retries
+fi
+
+# Your actual verification logic here
+if ! verify_completion; then
+  echo $((COUNT + 1)) > "$FLAG_FILE"
+  exit 2  # Reject stop
+fi
+
+rm -f "$FLAG_FILE"
+exit 0  # Allow stop</pre>
+
+  <p>For prompt-type hooks, the loop prevention is built into the prompt: "If you have already evaluated this task and found it incomplete on a previous check, and Claude has made a good-faith attempt to address the issues, allow the stop and note what remains." This gives the evaluator LLM the judgment to break the loop when further iteration is unlikely to be productive.</p>
+
+  <p>The three-gate pattern combines Stop hooks with pre-commit test hooks and AI code review. The Stop hook is the outermost gate&mdash;it fires before the session ends, before the code is even committed. The pre-commit test hook is Gate 1&mdash;it runs when code is committed. The AI code review is Gate 2&mdash;it runs when a PR is opened. The Stop hook catches "task not actually complete." Gate 1 catches "code does not work." Gate 2 catches "code works but is wrong." Gate 3 (human review) catches "code works and is correct but does not match intent." Each gate catches a different failure class, and the order matters: the cheapest check (Stop hook) runs first.</p>
+
+  <p>Combining Stop hooks with acceptance criteria is where the pattern becomes powerful. If your task description includes explicit acceptance criteria (as it should in a plan-file workflow), the Stop hook prompt can reference those criteria directly:</p>
+
+<pre>{
+  "hooks": {
+    "Stop": [{
+      "type": "prompt",
+      "prompt": "The original task specified these acceptance criteria: $ARGUMENTS. Evaluate Claude's response against each criterion. For each: state whether it is met, partially met, or not met. If any criterion is not fully met, respond with ok: false and explain what remains."
+    }]
+  }
+}</pre>
+
+  <p>This turns the Stop hook into an automated acceptance test&mdash;not a code test (that is Gate 1) but a task-level completeness test. Did Claude do what was asked? Not "does the code compile" but "does the implementation satisfy all five acceptance criteria in the plan file?"</p>
+
+  <p>Performance characteristics matter for workflow integration. Command-type hooks add milliseconds. Prompt-type hooks add 5&ndash;15 seconds. Agent-type hooks add 30&ndash;90 seconds. HTTP-type hooks add network latency plus server processing time. For interactive workflows where you are watching Claude work, prompt-type is the right default&mdash;fast enough to not feel like a blocker, thorough enough to catch the common failure. For batch/autonomous workflows where Claude is running unattended on multiple tasks, agent-type is worth the time cost because nobody is watching and the cost of an incomplete task is high.</p>
+
+  <p>One subtle but important behavior: the Stop hook's rejection reason is fed back to Claude as part of its context. This means a well-written rejection does double duty&mdash;it prevents the premature stop and it tells Claude exactly what to do next. "Incomplete: the error handling for the /api/users endpoint does not cover the 404 case specified in acceptance criterion 3" is both a rejection and a task instruction. Bad rejections ("not done yet") waste a continuation cycle because Claude has to figure out what is missing.</p>
+
+  <p>The operational recommendation is layered: start with a prompt-type Stop hook that checks against acceptance criteria. Add loop prevention with a max of 2 retries. If you are running autonomous batch workloads, upgrade to agent-type with a 90-second timeout. Keep command-type hooks for specific, deterministic checks (test suite passed, specific file exists, no TODO comments). Reserve HTTP-type for team environments where completion policies are centralized.</p>
+
+  <p class="relevance">The Stop hook is the single highest-leverage addition to any agentic workflow. It transforms "I think I'm done" into "I've verified I'm done." Start with the prompt-type hook above, add loop prevention, and watch your premature-completion rate drop to near zero.</p>
+
+  <h3 style="font-size: 13px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #999;">Related</h3>
+  <p style="text-indent: 0;"><a href="three-gate-quality.html">The three-gate pattern (tests + AI review + human approval)</a></p>
+  <p style="text-indent: 0;"><a href="anthropic-code-review.html">Anthropic Code Review architecture and alternatives</a></p>
+  <p style="text-indent: 0;"><a href="plan-files-workflow.html">Plan files in the repo beat tickets</a></p>
+
+  <h3 style="font-size: 13px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #999;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] claudefa.st &mdash; Hooks guide: complete reference for hook types and configuration</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[2] claudefa.st &mdash; Stop hook guide: patterns, pitfalls, and production configurations</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999; text-decoration: none;">The Radar</a> &middot; Agentic Coding &middot; Stop Hooks
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Microsoft Swarm Diaries Lessons</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Orchestration &middot; March 31, 2026</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">Orchestration</div>
+  <div class="headline">Microsoft's Swarm Diaries document the failure modes of uncoordinated multi-agent development</div>
+
+  <p>The Azure Apps team at Microsoft ran a controlled experiment in Q4 2025: five AI coding agents working simultaneously on a single codebase for a two-week sprint. The team published their findings as "Swarm Diaries" on the Microsoft Tech Community blog. The results are the most detailed public documentation of what actually happens when you throw multiple agents at a real production codebase without adequate coordination infrastructure. The short version: it works brilliantly in the narrow case and fails catastrophically in the general case, and the boundary between the two is more precise than you'd expect.</p>
+
+  <p>The experiment used five instances of GitHub Copilot Workspace (the agent-mode version, not the autocomplete) on a mid-size Azure service: approximately 180,000 lines of C# across 40 projects in a monorepo. Each agent was assigned a high-level task from the sprint backlog. The tasks were chosen to represent a realistic mix: two feature implementations, one refactoring, one test coverage improvement, and one documentation update. The agents were given access to the full repository and could create branches, run tests, and submit PRs. No coordination protocol was established between agents&mdash;this was deliberate, as the team wanted to observe the failure modes of uncoordinated parallel work.</p>
+
+  <p>Failure mode one: merge conflicts on shared files. This was the most frequent and most predictable failure. Three of the five agents modified the dependency injection configuration file (<code>Startup.cs</code> in the older codebase, <code>Program.cs</code> in the newer pattern). Each agent added service registrations for its feature. Each agent's change was correct in isolation. When the PRs were merged sequentially, the second and third PRs had textual merge conflicts. The merge conflicts themselves were trivial to resolve (add all three service registrations), but they required human intervention, broke the automated merge pipeline, and invalidated the CI results on the conflicting PRs. The agents had no way to know that another agent was modifying the same file, no way to sequence their changes, and no way to resolve the conflict themselves.</p>
+
+  <p>The team's analysis identified the root cause precisely: shared infrastructure files. In any codebase, there are files that are modified by many features: DI configuration, routing tables, database migration runners, shared type definitions, and central configuration files. These files are not "owned" by any feature&mdash;they're cross-cutting. A single developer working on multiple features touches these files once and keeps them consistent. Five agents working in parallel each touch these files independently and produce five inconsistent versions.</p>
+
+  <p>The proposed mitigation, which the team tested in the second week: designate one agent as the "infrastructure agent" with exclusive write access to shared files. Other agents declare their infrastructure needs (e.g., "I need a service registration for <code>IOAuthService</code>") in a structured format, and the infrastructure agent applies all changes to shared files in a coordinated sequence. This eliminated merge conflicts entirely but introduced a serialization bottleneck&mdash;the infrastructure agent became a choke point that other agents waited on. The team estimated this reduced overall throughput by 15-20% compared to the theoretical parallel maximum, but the reduction was worth it because it eliminated the 100% merge failure rate on shared files.</p>
+
+  <p>Failure mode two: inconsistent architectural decisions. This was subtler and more damaging. The two feature agents independently chose different patterns for the same architectural concern. One agent implemented error handling with a Result monad pattern (returning <code>Result&lt;T, Error&gt;</code> from service methods). The other agent implemented error handling with exceptions (throwing custom exception types and catching them in middleware). Both patterns are valid. Both agents had reasonable justifications based on the patterns they observed in the existing codebase (which, like most real codebases, had a mix of both patterns). The result was a codebase where the new OAuth feature used Result types and the new notification feature used exceptions. Not a merge conflict. Not a compilation error. Not a test failure. A silent architectural inconsistency that would compound over time.</p>
+
+  <p>This failure mode is particularly insidious because it's invisible to automated quality gates. Tests pass. The build succeeds. Code review might catch it, but only if the reviewer examines both PRs in the context of each other&mdash;which is unlikely when they arrive as separate, independently-authored PRs. The inconsistency only becomes apparent later when a developer works on a feature that touches both modules and has to understand two different error handling conventions in the same codebase.</p>
+
+  <p>The mitigation the team proposed: architectural decision records (ADRs) that agents must read before starting work. The ADRs declare the canonical patterns for common concerns (error handling, logging, data access, authentication). Each agent's system prompt includes a directive to check ADRs before making architectural choices. In the second-week test, this reduced architectural inconsistencies significantly but didn't eliminate them&mdash;agents sometimes made decisions that fell outside the scope of existing ADRs, and there was no mechanism for an agent to propose a new ADR when it encountered a novel concern.</p>
+
+  <p>Failure mode three: cascading test failures. The refactoring agent modified an internal utility class that was used by 23 test files. The modification was correct&mdash;the utility's public API was preserved&mdash;but the implementation change altered a timing-dependent behavior that 6 integration tests relied on (tests that were, in hindsight, testing an implementation detail rather than a contract). The refactoring agent's own tests passed because it ran unit tests for the refactored module. The 6 failing integration tests belonged to other modules and were not in the refactoring agent's test scope.</p>
+
+  <p>When the feature agents ran their tests later, they encountered failures in tests they hadn't modified, couldn't understand why, and attempted to "fix" the tests by adjusting expected values or adding waits&mdash;masking the real issue rather than identifying that the refactoring agent had changed upstream behavior. The human team spent four hours untangling this: reverting the test "fixes," understanding the refactoring's actual behavior change, deciding whether the behavior change was intentional, and updating the integration tests to test the contract rather than the implementation.</p>
+
+  <p>The cascading test failure mode is the most expensive because it compounds. Agent A changes behavior. Agent B sees test failures and "fixes" them by adjusting tests to match the new behavior, even if the new behavior is a bug. Agent C depends on the test suite for confidence and merges changes that are correct against the (now-wrong) tests. By the time a human investigates, three agents' work products are entangled with the original behavior change, and the root cause is buried under layers of compensating changes.</p>
+
+  <p>The mitigation: no agent should modify tests that it didn't create or that aren't in its domain. If an agent encounters a failing test outside its domain, it should stop and report the failure rather than attempting to fix it. This is easy to enforce with file ownership rules (the same domain glob mechanism that Agent Teams uses) but requires the coordination infrastructure to support it. The uncoordinated experiment had no such enforcement, which is why the failure cascaded.</p>
+
+  <p>Now, the wins. On the three workstreams that were genuinely independent&mdash;the test coverage improvement (touching only test files, no source changes), the documentation update (touching only <code>docs/</code>), and one of the feature implementations (a new, isolated microservice with no shared files)&mdash;the agents delivered 3-5x throughput compared to the estimated single-developer timeline. The documentation agent completed in 3 hours what would have taken a developer a full day. The test coverage agent wrote 147 new tests in 6 hours. The isolated feature agent delivered a complete microservice with tests in 8 hours.</p>
+
+  <p>The 3-5x multiplier is real but conditional. It requires that the workstreams share no files, make no architectural decisions that affect each other, and have no test dependencies. In the Azure Apps codebase, approximately 30% of sprint tasks met these criteria. The other 70% had at least one dependency that required coordination. This ratio is consistent with other reports: multi-agent parallelism delivers its theoretical throughput on embarrassingly parallel workstreams and delivers negative throughput (slower than single-agent due to conflict resolution overhead) on entangled workstreams.</p>
+
+  <p>The key findings, distilled to actionable rules:</p>
+
+  <p><strong>Rule 1: Single owner per shared file.</strong> Any file that appears in more than one agent's potential edit set must be assigned to exactly one agent. Other agents request changes through the owning agent. This eliminates merge conflicts at the cost of serialization on shared files.</p>
+
+  <p><strong>Rule 2: Explicit interface contracts before parallel work begins.</strong> Agents must agree on shared interfaces (API types, function signatures, database schemas) before any implementation starts. The contracts are written to files that all agents can read but only the owning agent can modify. Changes to contracts require a coordination step, not unilateral action.</p>
+
+  <p><strong>Rule 3: Genuinely independent units.</strong> If you cannot define the unit of work such that it touches no files outside its domain and has no behavioral dependencies on other units, it is not ready for parallel execution. Decompose further or execute sequentially.</p>
+
+  <p><strong>Rule 4: Never fix tests you don't own.</strong> When an agent encounters a failing test outside its domain, it stops and reports. It does not attempt to fix, adjust, or work around the failure. This prevents the cascading fix problem that was the most expensive failure mode in the experiment.</p>
+
+  <p><strong>Rule 5: Checkpoint-merge frequently.</strong> Don't let agents work for 8 hours and then merge. Merge every 1-2 hours into an integration branch and run the full test suite. Catch conflicts and inconsistencies early when the blast radius is small.</p>
+
+  <p>For smaller teams and solo developers, the implications are clear. Multi-agent development is not a general-purpose speedup. It's an optimization for a specific workload pattern: genuinely independent tasks with clear boundaries. If you're a solo developer, the tasks most likely to benefit are: test writing (independent of source changes), documentation (independent of implementation), dependency updates (mechanical, file-scoped), and new modules that don't touch existing code. Tasks that don't benefit: refactoring existing code (touches shared state), feature work that spans multiple modules (requires coordination), and any work that modifies shared infrastructure files.</p>
+
+  <p>The Swarm Diaries' most valuable contribution is the empirical evidence that coordination overhead is not zero. The multi-agent narrative in the industry tends to focus on the theoretical throughput multiplier (N agents = Nx throughput) without accounting for the coordination cost. Microsoft's data shows that coordination cost scales superlinearly with the number of agents and with the degree of coupling between their workstreams. At five agents with 70% coupled workstreams, the coordination cost consumed most of the theoretical throughput gain. The net improvement was approximately 1.8x over a single agent&mdash;real, but far from the 5x the setup implied.</p>
+
+  <p>The honest assessment: multi-agent development is not a silver bullet. It's a tool with a narrow applicability window that widens as coordination infrastructure improves. The tools (ACPX, Agent Teams, cmux) are improving rapidly. The decomposition practices (domain splits, interface contracts, file ownership) are being documented and formalized. The Swarm Diaries are valuable because they tell you exactly what fails and why, so you can invest in the right mitigations instead of discovering the failure modes in production.</p>
+
+  <p class="relevance">Before attempting multi-agent work on any feature, run the Swarm Diaries checklist: Can you define genuinely independent units? Can you assign single owners to every shared file? Can you write interface contracts before implementation starts? If any answer is no, stay single-agent for that feature. The 3-5x gains are only available on the 30% of tasks that pass this checklist.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="agent-teams-coordination.html">Agent Teams' peer-to-peer messaging enables production coordination patterns</a></p>
+  <p style="text-indent: 0;"><a href="orchestrator-transition.html">Addy Osmani's 8-level framework maps the conductor-to-orchestrator transition</a></p>
+  <p style="text-indent: 0;"><a href="acpx-cross-vendor-orchestration.html">ACP protocol and ACPX replace PTY scraping for cross-vendor agent orchestration</a></p>
+  <p style="text-indent: 0;"><a href="cmux-multi-agent-terminal.html">cmux provides the missing UI layer for multi-agent terminal workflows</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] Microsoft Azure Apps Team, "Swarm Diaries: What Happens When Five AI Agents Share a Codebase," techcommunity.microsoft.com/blog/azure-apps/swarm-diaries</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[2] Microsoft Tech Community, follow-up discussion thread, "Swarm Diaries: Lessons and Mitigations"</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[3] GitHub Copilot Workspace documentation, "Agent Mode: Multi-instance Considerations"</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999;">The Radar</a> &middot; Agentic Coding &middot; March 31, 2026
+</footer>
+
+</body>
+</html>

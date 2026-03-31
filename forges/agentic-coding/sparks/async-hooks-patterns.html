@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Async Hooks Enable Non-Blocking Side Effects</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Async Hooks &middot; March 31, 2026</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">Hooks &amp; Configuration</div>
+  <div class="headline">Async hooks enable non-blocking side effects without slowing the agent loop</div>
+
+  <p>Every synchronous hook on <code>PostToolUse</code> is a tax on every tool invocation. If you have a formatter that runs on file writes and it takes 150ms, and Claude writes 40 files during a feature implementation, you've added 6 seconds of dead time. Not model thinking time, not network latency&mdash;just your hook blocking the agent loop while it does something Claude doesn't need to see the result of. Released in January 2026, the <code>"async": true</code> flag on hook definitions solves this by running the hook in the background with fire-and-forget semantics. The hook launches, Claude continues immediately, and the hook's output is discarded.</p>
+
+  <p>The syntax is one line added to any existing hook definition:</p>
+
+  <pre>{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "bash ~/.claude/hooks/format-on-save.sh",
+        "async": true
+      }
+    ]
+  }
+}</pre>
+
+  <p>That's it. The hook still receives the same event JSON on stdin. It still runs the same command. But Claude Code spawns the process and does not wait for it to exit. No return value is captured, no exit code is checked, no stdout is read. The hook runs in its own process group and must manage its own error handling&mdash;if it fails, nobody notices unless the hook itself writes to a log file or sends an alert.</p>
+
+  <p>The design decision to fully discard async hook output is intentional and has a specific implication: async hooks cannot influence Claude's behavior. A synchronous <code>PreToolUse</code> hook can return exit code 2 to block a tool invocation. An async <code>PreToolUse</code> hook cannot&mdash;by the time it decides to block, Claude has already moved on. This is not a bug; it's the core tradeoff. Async means "I don't care about the result" and that necessarily means "I cannot influence the outcome."</p>
+
+  <p>This creates a clean decision framework for every hook you write. Ask one question: does Claude need to see this hook's result before proceeding? If yes, the hook must be synchronous. If no, make it async. The framework maps cleanly onto hook categories:</p>
+
+  <p><strong>Must be synchronous:</strong> Security blocking via <code>PreToolUse</code> (exit 2 to deny dangerous commands). Auto-approve decisions via <code>PermissionRequest</code> (the hook <em>is</em> the decision). Any hook that returns <code>systemMessage</code> or <code>additionalContext</code> that Claude needs to read. Skill activation on <code>UserPromptSubmit</code> (Claude needs the injected skill context before processing the prompt). Model routing on <code>UserPromptSubmit</code> (the model selection must happen before inference starts).</p>
+
+  <p><strong>Should be async:</strong> Logging and analytics (PostToolUse telemetry to a centralized service). Backup creation (PreCompact state snapshots). Desktop notifications (Stop, Notification events). Metrics collection (session duration, tool invocation counts). File watchers (triggering external build systems after writes). Slack/webhook delivery. Any side effect where the only consumer is a human or an external system, not Claude itself.</p>
+
+  <p>The <strong>PreCompact backup pattern</strong> is the canonical example of async hooks done right. Context compaction is a critical moment in a Claude Code session&mdash;the model is about to lose detailed memory of earlier conversation turns. A <code>PreCompact</code> hook can capture the full conversation state before compaction occurs, writing it to a backup file or sending it to a persistence service. This backup must not delay the compaction itself, because compaction typically triggers when the context window is nearly full and Claude needs the space to continue working. If the backup hook takes 2 seconds synchronously, that's 2 seconds of blocked agent operation at exactly the moment when the system is under memory pressure. Making the backup async means the compaction proceeds immediately while the backup writes to disk in parallel.</p>
+
+  <pre>{
+  "hooks": {
+    "PreCompact": [
+      {
+        "type": "command",
+        "command": "bash ~/.claude/hooks/backup-context.sh",
+        "async": true
+      }
+    ]
+  }
+}</pre>
+
+  <p>The backup script receives the pre-compaction state on stdin, writes it to a timestamped file in <code>.claude/backups/</code>, and optionally syncs to remote storage. Because it's async, a slow disk write or a network timeout for the remote sync doesn't block compaction. The tradeoff is that if the backup script crashes, the state is lost and nobody is notified inline. The script needs its own error handling&mdash;write to a local error log, send an alert, retry with exponential backoff. This is the operational overhead of async hooks: you trade latency for observability, and you must build the observability back yourself.</p>
+
+  <p>The performance impact of sync hooks on <code>PostToolUse</code> deserves specific measurement because this is the highest-frequency lifecycle event. In an active coding session, Claude might invoke tools 100-300 times. Every sync hook on <code>PostToolUse</code> runs on every one of those invocations. Common <code>PostToolUse</code> hooks include code formatters (prettier, black, rustfmt), linters (eslint, pylint), type checkers (tsc --noEmit), and telemetry loggers. A formatter that takes 100ms per invocation adds 10-30 seconds to a session. A type checker that takes 500ms adds 50-150 seconds. These numbers compound: two sync hooks at 200ms each on 200 tool invocations is 80 seconds of dead time.</p>
+
+  <p>The fix is straightforward: make everything that isn't a blocking decision async. The formatter? If it's for human readability and Claude doesn't read the formatted output, make it async. The linter? If it's informational and Claude doesn't adjust behavior based on lint results, make it async. The type checker? This one is nuanced&mdash;if Claude uses type errors to guide its next edit, it must be sync. If you're just collecting type error counts for a dashboard, async. The telemetry logger? Always async. There is no scenario where Claude needs to wait for a telemetry write to complete before proceeding.</p>
+
+  <p>Desktop notifications are the simplest async hook use case. On macOS:</p>
+
+  <pre>#!/bin/bash
+# notify-on-stop.sh - async hook for Stop event
+EVENT=$(cat -)
+STATUS=$(echo "$EVENT" | jq -r '.status // "completed"')
+osascript -e "display notification \"Claude Code session ${STATUS}\" with title \"Claude Code\""</pre>
+
+  <p>On Linux with <code>notify-send</code>, or on any platform via a webhook to your phone's notification service. The hook fires when Claude finishes a task (the <code>Stop</code> event), and the notification arrives a few hundred milliseconds later. If the notification fails&mdash;maybe the notification daemon isn't running&mdash;it doesn't matter. Claude already stopped. The notification is purely informational.</p>
+
+  <p>There's a subtlety with async hooks and process lifecycle. When Claude Code exits, it does not wait for async hooks to complete. If an async <code>Stop</code> hook is writing a summary to disk and Claude Code's process terminates, the hook's process may be killed mid-write (depending on the OS and process group handling). For hooks that perform important writes on session-ending events (<code>Stop</code>, <code>SessionEnd</code>), you need to handle this. The standard approach is to write to a temporary file first, then atomically rename it to the final path. If the process is killed during the write, you lose only the temp file. If it completes, the rename is atomic and the data is safe.</p>
+
+  <pre>#!/bin/bash
+# safe-async-write.sh
+TMPFILE=$(mktemp)
+cat - > "$TMPFILE"
+FINAL="$HOME/.claude/session-logs/$(date +%s).json"
+mv "$TMPFILE" "$FINAL"  # atomic on same filesystem</pre>
+
+  <p>Another pattern worth documenting: the async audit trail. A sync <code>PostToolUse</code> hook that logs every tool invocation to a centralized audit service adds network latency to every tool call. If the audit service is behind a load balancer with a 50ms P50 and a 500ms P99, you're adding at least 50ms per tool invocation and occasionally half a second. Over 200 invocations, the P50 overhead is 10 seconds and the P99 scenarios could add over a minute. Making this hook async eliminates the latency entirely. The audit records arrive at the service slightly out of order (because async hooks don't guarantee ordering), but for audit purposes, each record includes a timestamp, so the service can reconstruct the timeline.</p>
+
+  <p>The ordering guarantee (or lack thereof) is important. Sync hooks execute in the order they're defined in the hooks array and each completes before the next starts. Async hooks all launch simultaneously and complete in arbitrary order. If you have two async <code>PostToolUse</code> hooks&mdash;one that writes to a local log and one that sends to a remote service&mdash;there's no guarantee about which writes first. For independent side effects this doesn't matter. For dependent side effects (where hook B reads what hook A wrote), you must use sync hooks or implement your own coordination mechanism.</p>
+
+  <p>How to audit your existing hooks for async candidates: list every hook in your configuration. For each one, answer three questions. First, does Claude read this hook's output? If the hook returns <code>systemMessage</code>, <code>additionalContext</code>, or influences tool approval via exit codes, it must be sync. Second, does the hook's timing matter? If the hook must complete before the next tool invocation starts (e.g., a lock file that prevents concurrent edits), it must be sync. Third, who is the audience for this hook's output? If the audience is Claude, sync. If the audience is a human, a dashboard, a logging service, or an external system, async.</p>
+
+  <p>In practice, most hooks in a mature configuration should be async. A typical setup might have 8-12 hooks across various lifecycle events. Of those, usually 2-3 need to be sync (security blocking, permission handling, skill activation) and the rest are side effects that should be async. The performance difference between a mostly-sync and a mostly-async hook configuration is measurable in wall-clock seconds per session. On a 30-minute coding session with 200+ tool invocations, converting five 100ms sync hooks to async saves 100 seconds. That's not theoretical&mdash;that's time you sit watching Claude's spinner instead of reading Claude's output.</p>
+
+  <p>One final pattern: the hybrid approach. For hooks where you want async performance but occasional sync behavior, use a conditional wrapper. The hook checks a fast condition (does a file exist? is an environment variable set?) synchronously in under 1ms. If the condition is met, it does synchronous work. If not, it spawns a background process and exits immediately, mimicking async behavior within a sync hook definition. This is a workaround for the fact that the <code>async</code> flag is per-hook-definition, not per-invocation. You can't say "be async usually, but sync when it matters." The conditional wrapper achieves the same effect at the script level.</p>
+
+  <pre>#!/bin/bash
+# hybrid-formatter.sh - sync hook that acts async when safe
+EVENT=$(cat -)
+TOOL=$(echo "$EVENT" | jq -r '.tool')
+
+if [ "$TOOL" = "Write" ]; then
+  FILE=$(echo "$EVENT" | jq -r '.input.file_path')
+  # Only format synchronously if Claude will read the file next
+  if echo "$EVENT" | jq -e '.context.next_tool == "Read"' > /dev/null 2>&1; then
+    prettier --write "$FILE" 2>/dev/null
+  else
+    # Fire-and-forget background formatting
+    nohup prettier --write "$FILE" > /dev/null 2>&1 &
+  fi
+fi</pre>
+
+  <p class="relevance">Audit every PostToolUse hook in your configuration right now. If the hook is logging, formatting, or notifying&mdash;and Claude never reads its output&mdash;add "async": true. The cumulative latency savings across a day of agentic coding sessions are significant enough to justify the five minutes of configuration changes.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="http-hooks-remote.html">HTTP hooks open Claude Code to remote validation services and team-wide policies</a></p>
+  <p style="text-indent: 0;"><a href="seventeen-lifecycle-hooks.html">Claude Code exposes 17 lifecycle events &mdash; the newer ones unlock Agent Teams and automated onboarding</a></p>
+  <p style="text-indent: 0;"><a href="model-router-hook.html">Model router hook auto-switches tier by task complexity with zero API calls</a></p>
+  <p style="text-indent: 0;"><a href="skill-activation-hooks.html">Skill activation hooks guarantee skill loading by injecting context before Claude processes the prompt</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] claudefa.st, "Hooks Guide &mdash; Async Hooks," claudefa.st/hooks (async section)</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999;">The Radar</a> &middot; Agentic Coding &middot; March 31, 2026
+</footer>
+
+</body>
+</html>

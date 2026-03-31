@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Agentic Coding</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Georgia', serif;
+  background: #f8f6f1;
+  color: #333;
+  line-height: 1.7;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.nameplate {
+  text-align: center;
+  border-top: 3px double #222;
+  border-bottom: 3px double #222;
+  padding: 10px 0;
+  margin-bottom: 1.25rem;
+}
+
+.nameplate h1 {
+  font-size: 28px;
+  font-weight: 400;
+  font-style: italic;
+  color: #1a1a1a;
+}
+
+.nameplate .edition {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  color: #999;
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+
+/* Tab navigation */
+.tabs {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 1.5rem;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.tabs a {
+  color: #999;
+  text-decoration: none;
+  padding: 6px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.tabs a:hover { color: #555; }
+
+/* Tab switching via checkbox hack (no JS) */
+#tab-toggle { display: none; }
+#tab-toggle:not(:checked) ~ .tabs .tab-sota { color: #1a1a1a; border-bottom-color: #8b4513; }
+#tab-toggle:not(:checked) ~ .tabs .tab-dispatch { color: #999; border-bottom-color: transparent; }
+#tab-toggle:checked ~ .tabs .tab-sota { color: #999; border-bottom-color: transparent; }
+#tab-toggle:checked ~ .tabs .tab-dispatch { color: #1a1a1a; border-bottom-color: #8b4513; }
+#tab-toggle:not(:checked) ~ #state-of-the-art { display: block; }
+#tab-toggle:not(:checked) ~ #dispatch { display: none; }
+#tab-toggle:checked ~ #state-of-the-art { display: none; }
+#tab-toggle:checked ~ #dispatch { display: block; }
+
+/* State of the Art — two columns */
+.cols {
+  column-count: 2;
+  column-gap: 28px;
+  column-rule: 1px solid #ddd;
+}
+
+.section {
+  break-inside: avoid;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.section:last-child { border-bottom: none; }
+
+.kicker {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.headline {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+
+p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #333;
+  text-align: justify;
+  margin-bottom: 0.6rem;
+}
+
+p + p { text-indent: 1em; }
+
+.relevance {
+  font-style: italic;
+  font-size: 12.5px;
+  color: #555;
+  margin-top: 6px;
+  text-indent: 0;
+  text-align: left;
+}
+
+.relevance::before { content: '\2192 '; color: #8b4513; }
+
+.cont {
+  font-size: 11px;
+  color: #8b4513;
+  font-style: italic;
+  text-indent: 0;
+  text-align: left;
+  margin-top: 4px;
+}
+
+.cont a { color: #8b4513; text-decoration: none; }
+.cont a:hover { text-decoration: underline; }
+
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Dispatch — feed view */
+.run-block {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.run-header {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #999;
+  padding: 6px 0;
+  border-top: 1px double #ccc;
+  border-bottom: 1px double #ccc;
+  margin-bottom: 1rem;
+}
+
+.dispatch-entry {
+  margin-bottom: 1.25rem;
+}
+
+.dispatch-label {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8b4513;
+  margin-right: 6px;
+}
+
+.dispatch-headline {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.dispatch-headline a { color: #1a1a1a; }
+.dispatch-headline a:hover { color: #8b4513; }
+
+code {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  background: #f0ece0;
+  padding: 1px 4px;
+}
+
+pre {
+  background: #f0ece0;
+  border: 1px solid #ddd;
+  padding: 10px 14px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  text-align: left;
+  text-indent: 0;
+}
+
+footer {
+  margin-top: 2rem;
+  padding-top: 0.75rem;
+  border-top: 3px double #222;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  color: #999;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+/* Single-column mode for child pages */
+.single-col {
+  max-width: 680px;
+  margin: 0 auto;
+  column-count: 1;
+}
+
+.back-link {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  color: #8b4513;
+  text-decoration: none;
+  margin-bottom: 1rem;
+  display: inline-block;
+}
+
+/* Responsive: single column on narrow screens */
+@media (max-width: 640px) {
+  .cols { column-count: 1; }
+  body { padding: 1.5rem 1rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition"><a href="../../../index.html">&larr; All Forges</a> &middot; Agentic Coding &middot; March 31, 2026 &middot; 20 sparks</div>
+</div>
+
+<!-- Checkbox hack for tab switching -->
+<input type="checkbox" id="tab-toggle">
+<div class="tabs">
+  <label for="tab-toggle" class="tab-sota" style="cursor:pointer;">State of the Art</label>
+  <label for="tab-toggle" class="tab-dispatch" style="cursor:pointer;">Dispatch</label>
+</div>
+
+<div id="state-of-the-art">
+  <div class="cols">
+
+    <!-- ============ ORCHESTRATION ============ -->
+
+    <div class="section" id="acpx-cross-vendor">
+      <div class="kicker">Orchestration</div>
+      <div class="headline">ACP protocol and ACPX replace PTY scraping for cross-vendor agent orchestration</div>
+      <p>The Agent Client Protocol (ACP), created by Zed Industries and now co-maintained by JetBrains, solves the M&times;N integration problem for coding agents the same way LSP solved it for language tooling. Instead of spawning child processes and scraping raw terminal output&mdash;losing structured metadata, diffs, thinking steps, and error semantics&mdash;ACP uses JSON-RPC 2 over stdio to exchange typed events between orchestrator and agent.</p>
+      <p>ACPX (<code>openclaw/acpx</code>, MIT) is the headless CLI client. It gives you named persistent sessions, prompt queueing, crash reconnect, and fire-and-forget mode. From Claude Code, you can delegate to Codex, Gemini, Kiro, or any of 15+ supported agents through structured protocol communication. Results come back as typed events you can pipe through <code>jq</code>, not mangled ANSI streams. Anthropic declined native ACP support (issue #6686, 439 thumbs-up), so ACPX bridges the gap with a CLI adapter.</p>
+      <p class="relevance">You're single-agent today. ACPX lets you delegate tests to Codex while Claude implements, or have Gemini review Claude's output&mdash;all structured, no scraping. Pair with cmux for the full multi-agent terminal setup.</p>
+      <p class="cont"><a href="acpx-cross-vendor-orchestration.html">Continue: ACP protocol and ACPX setup &rarr;</a></p>
+    </div>
+
+    <div class="section" id="agent-teams-peer">
+      <div class="kicker">Orchestration</div>
+      <div class="headline">Agent Teams' peer-to-peer messaging is the real differentiator from subagents</div>
+      <p>Claude Code's Agent Teams let multiple Claude Code sessions collaborate as a coordinated team. The architectural distinction from subagents is peer-to-peer communication: subagents report results back to a parent (fan-out/fan-in), but Agent Teams teammates message each other directly, share discoveries mid-task, and pass intermediate artifacts without the lead acting as intermediary. The lead-mate architecture uses <code>.claude/teams.yml</code> for team structure, with the lead handling decomposition and mates owning domains.</p>
+      <p>Use subagents for independent parallel tasks (tests, linting, type-checking) where the parent only needs aggregated results. Use Agent Teams when developing across domains simultaneously (frontend + backend + infra), when intermediate artifacts like API schemas need real-time sharing, or when you want agents to review each other's work.</p>
+      <p class="relevance">Your current subagent usage caps out at fan-out/fan-in. For large full-stack features&mdash;your stated pain point&mdash;Agent Teams let a backend mate share a schema with a frontend mate directly, eliminating the serialization bottleneck that causes regressions.</p>
+      <p class="cont"><a href="agent-teams-coordination.html">Continue: Agent Teams production patterns &rarr;</a></p>
+    </div>
+
+    <div class="section" id="conductor-to-orchestrator">
+      <div class="kicker">Orchestration</div>
+      <div class="headline">The conductor-to-orchestrator transition demands decomposition skills, not coding skills</div>
+      <p>Addy Osmani's "Code Agent Orchestra" talk at O'Reilly AI CodeCon codifies an 8-level maturity model for AI-assisted coding. Most developers are stuck at levels 3&ndash;4 (interactive pair programming). The orchestration tier starts at level 6 and requires a fundamentally different skillset: clear specs, work decomposition, and output verification rather than writing code yourself. The mental model shifts from pair programming to managing a team.</p>
+      <p>Three walls force the transition: context overload (one agent can't hold a large codebase), no specialization (a generalist writes worse database code than a focused agent), and no coordination (sequential work when parallel is possible). The practical discipline: plan the work, assign it, verify the output. Your ceiling is no longer what fits in one context window.</p>
+      <p class="relevance">This maps directly to your pain point with big full-stack features ending in waste. The fix isn't better prompting&mdash;it's better decomposition. Osmani's framework gives you the maturity ladder to self-assess where you are (likely level 5) and what level 6&ndash;7 looks like.</p>
+      <p class="cont"><a href="orchestrator-transition.html">Continue: Osmani's 8-level framework &rarr;</a></p>
+    </div>
+
+    <div class="section" id="cmux-terminal">
+      <div class="kicker">Orchestration</div>
+      <div class="headline">cmux is the purpose-built terminal for multi-agent workflows on macOS</div>
+      <p><code>cmux</code> (<code>manaflow-ai/cmux</code>) is a native macOS terminal using libghostty (Ghostty's engine) for GPU-accelerated rendering. It provides split panes with per-pane agent status, colored attention rings when an agent needs input or finishes, macOS desktop notifications wired to agent lifecycle events, and an embedded WebKit browser for previewing dev servers inline. Install via <code>brew tap manaflow-ai/cmux && brew install --cask cmux</code>. Requires macOS 14.0+ (Sonoma).</p>
+      <p>The workflow: Claude Code orchestrates in one pane, ACPX sessions run in others, cmux lights up completed panes and fires desktop notifications. Running three agents in three terminal tabs is chaos; cmux's notification system turns it into something manageable.</p>
+      <p class="relevance">If you move to multi-agent (Agent Teams or ACPX), cmux replaces your terminal multiplexer with something purpose-built. The notification system means you can context-switch to other work while agents run, then come back when they need you.</p>
+      <p class="cont"><a href="cmux-multi-agent-terminal.html">Continue: cmux setup and workflow &rarr;</a></p>
+    </div>
+
+    <div class="section" id="swarm-diaries">
+      <div class="kicker">Orchestration</div>
+      <div class="headline">Microsoft's Swarm Diaries: five agents on one codebase exposed the coordination failure modes</div>
+      <p>Microsoft's Azure Apps team ran five AI agents simultaneously on a single codebase and published "The Swarm Diaries" documenting exactly what broke. The primary failure modes: merge conflicts from parallel edits to shared files, inconsistent architectural decisions when agents lacked shared context, and cascading test failures when one agent's changes broke another's assumptions. The wins: 3&ndash;5x throughput on truly independent workstreams with clear file boundaries.</p>
+      <p>Their key finding: multi-agent only works when work is decomposed into genuinely independent units with explicit interface contracts. Shared files need a single owner. The moment two agents touch the same module without coordination, you get worse output than a single agent would produce.</p>
+      <p class="relevance">This is the production reality check before you go multi-agent. For Spark, decompose by service boundary (each agent owns a service). For full-stack features, the backend/frontend split only works if the API contract is defined before agents start.</p>
+      <p class="cont"><a href="swarm-diaries-lessons.html">Continue: Microsoft's multi-agent failure modes &rarr;</a></p>
+    </div>
+
+    <!-- ============ REGRESSION & QUALITY ============ -->
+
+    <div class="section" id="anthropic-code-review">
+      <div class="kicker">Code Review</div>
+      <div class="headline">Anthropic Code Review dispatches parallel agents with under 1% false positive rate</div>
+      <p>Launched March 9, 2026, Anthropic's Code Review is a managed PR reviewer that runs multiple Claude agents in parallel. Each agent analyzes different sections, they cross-verify findings to filter false positives, then deliver one summary comment plus inline flags on exact lines. Internal testing: 54% of PRs get substantive comments (up from 16%), under 1% of findings marked incorrect by engineers, 84% of 1000+ line PRs get findings averaging 7.5 issues each.</p>
+      <p>It catches contextual bugs&mdash;things syntactically correct but logically wrong. A one-line production change that would have silently broken authentication. A type mismatch in ZFS encryption "silently wiping the encryption key cache on every sync." Average review time ~20 minutes. Cost: $15&ndash;25/PR on token usage. Requires Team or Enterprise plan. Will not approve PRs&mdash;humans still approve.</p>
+      <p class="relevance">You asked about running this locally with a Claude subscription&mdash;you can't. It's Team/Enterprise only, cloud-hosted. For your solo setup, the open-source <code>toriihq/claude-review-action</code> (31 stars, MIT) is the closest free alternative. Or build your own with a subagent-based review skill.</p>
+      <p class="cont"><a href="anthropic-code-review.html">Continue: Code Review architecture and alternatives &rarr;</a></p>
+    </div>
+
+    <div class="section" id="stop-hooks-done-gate">
+      <div class="kicker">Quality Gates</div>
+      <div class="headline">Stop hooks are the missing "done" gate that prevents premature completion</div>
+      <p>Claude Code's Stop hook fires when Claude finishes responding. Exit code 2 forces Claude to keep working. This is the mechanism for enforcing task completion: a prompt-type hook evaluates whether all tasks are actually done, tests pass, and acceptance criteria are met. If not, it blocks the stop and tells Claude what's left. Agent-type hooks can even grep the codebase to verify claims before allowing completion.</p>
+      <p>The pattern: <code>"type": "prompt", "prompt": "Evaluate if Claude should stop: $ARGUMENTS. Check if all tasks complete."</code> The LLM responds with <code>{"ok": true}</code> or <code>{"ok": false, "reason": "..."}</code>. Critical: always check a <code>stop_hook_active</code> flag to prevent infinite loops. This transforms "I think I'm done" into "I've verified I'm done."</p>
+      <p class="relevance">This directly addresses your regression/waste spiral. Your e2e test hooks catch code-level regressions, but a Stop hook catches the meta-failure: Claude declaring victory with work still undone. Add this as the outermost gate.</p>
+      <p class="cont"><a href="stop-hooks-completion.html">Continue: Stop hook patterns and pitfalls &rarr;</a></p>
+    </div>
+
+    <div class="section" id="three-gate-pattern">
+      <div class="kicker">Quality Gates</div>
+      <div class="headline">The three-gate pattern (tests + AI review + human approval) is the emerging production standard</div>
+      <p>Across multiple production write-ups, a consistent quality pattern has emerged for agentic code: Gate 1 is automated tests (pre-commit hooks running integration/e2e suites), Gate 2 is AI code review (either Anthropic's managed Code Review or a subagent-based reviewer), and Gate 3 is human approval (the PR review that no AI should auto-approve). SpecWeave calls these "quality gates" and enforces them before any increment can close. The NousResearch hermes-agent project calls it "fail-closed review."</p>
+      <p>The critical insight: Gate 1 alone (your current setup) catches syntactic and behavioral regressions but misses logical errors, security issues, and architectural drift. Gate 2 catches what tests don't cover&mdash;the "syntactically correct but logically wrong" class. Gate 3 catches what neither automated system can: whether the code matches the actual intent and fits the broader product direction.</p>
+      <p class="relevance">You have Gate 1 (e2e hooks). Adding Gate 2 (a code review skill or subagent) is the highest-leverage next step. You can build a simple /review skill that spawns a fresh subagent with "review this diff for logic errors, security, and architectural consistency" and blocks merge until it passes.</p>
+      <p class="cont"><a href="three-gate-quality.html">Continue: Implementing the three-gate pattern &rarr;</a></p>
+    </div>
+
+    <!-- ============ WORKFLOW DESIGN ============ -->
+
+    <div class="section" id="plan-files-repo">
+      <div class="kicker">Workflow Design</div>
+      <div class="headline">Plan files in the repo beat tickets for agentic development</div>
+      <p>George Violaris's "agentic development loop" puts a plan file per feature in the repo&mdash;not a Jira ticket, not a conversation thread. Each plan file is a contract: objective (observable behavior, not implementation), constraints (what it must not do), dependencies, acceptance criteria, and open questions. Plan files are versioned, diffable, and survive session resets. When the plan changes, you see what changed and when.</p>
+      <p>His key insight: "The value of agentic coding isn't speed. It's that it forces you to be explicit about what you'd normally leave implicit." The brainstorm phase produces a feature map against your actual codebase context. The plan phase converts it into files detailed enough that an agent unfamiliar with the project could implement without ambiguity. Implementation is the easy part&mdash;the plan is where the real work happens.</p>
+      <p class="relevance">This directly addresses your pain point about no great process for upfront design. Try it on your next Spark feature: Wispr Flow a 20-min voice dump, have Claude convert it to a plan file with the five sections above, iterate the plan until it's airtight, then implement. The plan file replaces your current gap between "voice spec" and "start coding."</p>
+      <p class="cont"><a href="plan-files-workflow.html">Continue: Violaris's agentic development loop &rarr;</a></p>
+    </div>
+
+    <div class="section" id="spec-driven-dev">
+      <div class="kicker">Workflow Design</div>
+      <div class="headline">Spec-driven development is the matured form of vibe coding</div>
+      <p>Multiple independent sources (Matt Pocock, SpecWeave, Violaris, the Codegen blog) have converged on the same pipeline: brainstorm &rarr; spec &rarr; plan &rarr; implement &rarr; review. Matt Pocock's "7 phases" video (32.8K views) structures it as idea &rarr; research &rarr; prototype &rarr; PRD &rarr; implementation planning &rarr; implementation &rarr; review. The Codegen team's "agentic workflows that ship" article identifies context&mdash;not the model&mdash;as the bottleneck: "The culprit is almost always context: the agent doesn't know enough about the codebase to make good decisions."</p>
+      <p>The consensus: implementation is the cheapest phase. Spending 60&ndash;70% of time on spec and planning produces dramatically better outcomes than jumping to code. The spec is the source of truth; code is its derivative. Bad plans create orders of magnitude more rework than bad code.</p>
+      <p class="relevance">You're already doing this intuitively with Wispr Flow voice dumps for feature specs. The next step is formalizing the phases: separate brainstorm (explore the space) from spec (define the contract) from plan (decompose into implementable tasks). Your current skills already support this; the insight is that the pipeline should be explicit and sequential, not collapsed.</p>
+      <p class="cont"><a href="spec-driven-development.html">Continue: The spec-driven pipeline &rarr;</a></p>
+    </div>
+
+    <div class="section" id="specweave-tool">
+      <div class="kicker">Workflow Design</div>
+      <div class="headline">SpecWeave adds persistent quality gates across sessions and tools</div>
+      <p>SpecWeave (<code>npm install -g specweave</code>) is a spec-first behavior layer for any AI coding tool. It addresses session amnesia (session 47 has no idea what session 46 decided), the standards lottery (different developers' AI sessions produce inconsistent quality), and coordination failure (parallel agents making conflicting decisions). It encodes standards into version-controlled config: TDD enforcement mode, required review gates, external sync to GitHub/JIRA.</p>
+      <p>Key capabilities: agent swarms where each agent owns an isolated increment (no conflicts), 70%+ token reduction via plugin architecture that loads only active context, LSP-based code intelligence (198x faster than grep), and living documentation that updates automatically via hooks. It claims 635+ increments building itself. Natural language routing means you say "build me X" and it creates spec &rarr; plan &rarr; tasks automatically.</p>
+      <p class="relevance">This solves your "unclear when to break work into multiple sessions" pain. SpecWeave's increment model gives each session a bounded scope with quality gates. Worth evaluating whether it complements or competes with your existing skill-based setup. The TDD enforcement and spec persistence across sessions are the features most relevant to your workflow.</p>
+      <p class="cont"><a href="specweave-evaluation.html">Continue: SpecWeave architecture and tradeoffs &rarr;</a></p>
+    </div>
+
+    <div class="section" id="aapev-pattern">
+      <div class="kicker">Workflow Design</div>
+      <div class="headline">The AAPEV 5-phase pattern prevents agents from jumping to code without thinking</div>
+      <p>The Claude Code Blueprint repo (53 stars, Aedelon) codifies a 5-phase cognitive pattern for every skill: Assess/Clarify &rarr; Analyze/Research &rarr; Plan/Design &rarr; Execute/Implement &rarr; Validate/Verify. The pattern prevents the single most common agent failure: jumping straight to Phase 4 (write code) without understanding (Phase 1), researching what exists (Phase 2), or planning the approach (Phase 3). The Blueprint implements this across 32 skills in a 6-layer architecture (CLAUDE.md kernel &rarr; memory &rarr; skills &rarr; agents &rarr; security &rarr; MCP).</p>
+      <p>The layered architecture is the interesting part: anti-hallucination protocols work because Context7 is available as an MCP server; security hooks work because static permissions define a perimeter; multi-agent brainstorm works because agents have dedicated tools and models. Each layer reinforces the others.</p>
+      <p class="relevance">Your skills already follow a similar pattern implicitly. The AAPEV formalization is worth adopting as the explicit contract in every SKILL.md you write. It's cheap to add and prevents the most expensive failure mode (agent charges ahead without understanding the problem).</p>
+      <p class="cont"><a href="aapev-skill-pattern.html">Continue: Blueprint architecture and AAPEV &rarr;</a></p>
+    </div>
+
+    <!-- ============ CONTEXT MANAGEMENT ============ -->
+
+    <div class="section" id="hub-spoke-memory">
+      <div class="kicker">Context Management</div>
+      <div class="headline">Hub-and-spoke memory pattern persists architectural decisions across 200+ sessions</div>
+      <p>A developer building a SaaS product over three months with Claude Code developed the "hub-and-spoke" memory pattern: a central memory index (hub) links to topic-specific memory files (spokes) covering architecture decisions, API contracts, deployment config, and user preferences. Each spoke is a standalone document that can be loaded selectively. The hub file stays under the auto-loaded size limit; spokes are pulled in on demand when relevant to the current task.</p>
+      <p>The pattern solves the "session 47 doesn't know what session 46 decided" problem without loading everything into context. Key design choices: spokes are organized by topic not chronology, each spoke has a "last verified" date, and stale spokes get pruned during periodic maintenance sessions. The developer reports zero context loss across 200+ sessions on a complex project.</p>
+      <p class="relevance">Your setup already uses memory files. The hub-and-spoke formalization is the refinement: keep the auto-loaded MEMORY.md small (just pointers), organize spokes by architectural domain, and add "last verified" dates so you know when a memory was last confirmed true. This is exactly your current system&mdash;validate that you're pruning stale entries.</p>
+      <p class="cont"><a href="hub-spoke-memory.html">Continue: Hub-and-spoke implementation &rarr;</a></p>
+    </div>
+
+    <div class="section" id="statusline-backups">
+      <div class="kicker">Context Management</div>
+      <div class="headline">StatusLine-based proactive backups catch context before auto-compaction destroys it</div>
+      <p>The ClaudeFast Code Kit implements a three-file backup system triggered by StatusLine monitoring (the only mechanism that receives live token metrics). The system uses dual triggers: token-based (primary, fires at 50K tokens used then every 10K after) and percentage-based (safety net at 30%, 15%, 5% remaining). Critical detail: <code>remaining_percentage</code> includes a hidden 33K-token autocompact buffer, so you need to subtract it to get actual free-until-compact.</p>
+      <p>Architecture: <code>backup-core.mjs</code> (shared backup logic), <code>statusline-monitor.mjs</code> (threshold detection + display), and <code>conv-backup.mjs</code> (PreCompact trigger). Backup files are numbered with timestamps. The statusline displays the latest backup path so after compaction you know exactly which file to load. Recommended workflow: when compaction occurs, run <code>/clear</code> to start fresh, then load the backup file.</p>
+      <p class="relevance">If you're hitting context limits on large features, this is the insurance policy. The token-based trigger is especially important for 1M context windows where percentage thresholds fire too late. Add this to your hooks and you'll never lose mid-feature context to surprise compaction again.</p>
+      <p class="cont"><a href="statusline-context-backup.html">Continue: StatusLine backup implementation &rarr;</a></p>
+    </div>
+
+    <div class="section" id="workflow-template">
+      <div class="kicker">Context Management</div>
+      <div class="headline">runesleo/claude-code-workflow (539 stars) codifies 3 months of daily session management</div>
+      <p>The most-starred Claude Code workflow template on GitHub (539 stars, 66 forks) distills three months of daily usage into a reusable template covering memory management, context engineering, and task routing. It represents community consensus on what a battle-tested <code>.claude/</code> directory looks like for a solo developer shipping real products. The template focuses on session lifecycle: how to start sessions with the right context, how to route tasks to the right model tier, and how to preserve state across session boundaries.</p>
+      <p>Notable design choices: aggressive use of <code>/compact</code> over auto-compact (you control when context resets, not the system), structured task routing based on complexity (simple edits to Haiku, implementation to Sonnet, architecture to Opus), and explicit session handoff documents that summarize the current state for the next session.</p>
+      <p class="relevance">Fork this repo and diff it against your current setup. The session handoff documents and manual compact strategy are the two patterns most likely to improve your long-feature workflow. At 539 stars with active maintenance, this is the closest thing to a community standard for solo Claude Code setups.</p>
+      <p class="cont"><a href="workflow-template.html">Continue: runesleo/claude-code-workflow analysis &rarr;</a></p>
+    </div>
+
+    <!-- ============ HOOKS & CONFIGURATION ============ -->
+
+    <div class="section" id="http-hooks">
+      <div class="kicker">Hooks &amp; Configuration</div>
+      <div class="headline">HTTP hooks open Claude Code to remote validation services and team-wide policies</div>
+      <p>As of February 2026, Claude Code hooks support HTTP type handlers that POST event JSON to any endpoint. This enables remote validation services, centralized audit logging, Slack/PagerDuty integrations, and microservice architectures where hook logic runs alongside your API. Key behavior difference from command hooks: non-2xx responses produce non-blocking errors (execution continues). To actually block a tool call, return 2xx with <code>"permissionDecision": "deny"</code> in the body.</p>
+      <p>Header values support environment variable interpolation, but only for variables in the explicit <code>allowedEnvVars</code> list&mdash;unlisted variables resolve to empty strings silently. Hooks are deduplicated by URL (command hooks dedup by command string). Config-only: the <code>/hooks</code> interactive menu only supports command hooks; HTTP hooks must be added by editing settings JSON directly.</p>
+      <p class="relevance">For your solo setup, HTTP hooks are overkill. But if you build team tooling for a VP Engineering role, this is how you enforce org-wide policies: one validation endpoint that all Claude Code instances POST to, checking for security patterns, style compliance, or deployment gates centrally.</p>
+      <p class="cont"><a href="http-hooks-remote.html">Continue: HTTP hook patterns &rarr;</a></p>
+    </div>
+
+    <div class="section" id="model-router">
+      <div class="kicker">Hooks &amp; Configuration</div>
+      <div class="headline">Model router hook auto-switches tier by task complexity with zero API calls</div>
+      <p>The <code>tzachbon/claude-model-router-hook</code> (25 stars, MIT) classifies every prompt by complexity using keyword and pattern matching&mdash;no API calls, no latency. It runs as a UserPromptSubmit hook: git ops and renames route to Haiku, feature work and debugging to Sonnet, architecture and deep analysis to Opus. A SessionStart hook injects sub-agent model rules so spawned agents also use the right tier. Default behavior is warn-only; set <code>"action": "autoswitch"</code> for automatic model switching.</p>
+      <p>Classification uses three signal layers: opus keywords (architect, tradeoff, deep dive, complex refactor), haiku patterns (regex matching git commands, renames, formatting), and sonnet patterns (build, implement, fix, debug). Word count thresholds add a coarse signal: &gt;200 words or &gt;100 words with a question mark routes to Opus. Prefix any prompt with <code>~</code> to bypass classification entirely.</p>
+      <p class="relevance">Direct cost optimization for your setup. Install via <code>claude plugin marketplace add tzachbon/claude-model-router-hook</code>. The sub-agent tier injection is especially valuable&mdash;it prevents your subagents from defaulting to Opus for simple file searches. The ~ override gives you an escape hatch when you disagree with classification.</p>
+      <p class="cont"><a href="model-router-hook.html">Continue: Model router setup and customization &rarr;</a></p>
+    </div>
+
+    <div class="section" id="async-hooks">
+      <div class="kicker">Hooks &amp; Configuration</div>
+      <div class="headline">Async hooks enable non-blocking side effects without slowing the agent</div>
+      <p>Adding <code>"async": true</code> to any hook runs it in the background without blocking Claude's execution. Released January 2026. This unlocks logging, analytics, backup creation, notifications, and any side-effect that shouldn't add latency to the agent loop. The hook runs concurrently with Claude's next action; results are fire-and-forget.</p>
+      <p>Not suitable for security blocking (PreToolUse exit code 2 needs to be synchronous), auto-approve decisions, or any hook where Claude needs the result before proceeding. Best combined with the StatusLine backup system: the PreCompact backup hook runs async because the backup doesn't need to block compaction&mdash;it just needs to capture state before it's gone.</p>
+      <p class="relevance">If you've noticed hooks adding latency to your workflow (especially PostToolUse formatters or loggers), check whether they can be async. Your e2e test hooks must stay synchronous, but logging, backup, and notification hooks should all be async.</p>
+      <p class="cont"><a href="async-hooks-patterns.html">Continue: Async hook use cases &rarr;</a></p>
+    </div>
+
+    <div class="section" id="skill-activation">
+      <div class="kicker">Hooks &amp; Configuration</div>
+      <div class="headline">Skill activation hooks guarantee skill loading by injecting context before Claude thinks</div>
+      <p>The Skill Activation Hook intercepts prompts via UserPromptSubmit and appends skill recommendations before Claude starts working. It matches keywords in your input against a rules file and injects the right skill context&mdash;so Claude loads database optimization rules for a Postgres query without you asking. This is a deterministic guarantee, not a probabilistic suggestion. The ClaudeFast Code Kit implements this against 21 skill categories.</p>
+      <p>The pattern: a UserPromptSubmit command hook parses the incoming prompt, checks against a keyword-to-skill mapping, and returns a <code>systemMessage</code> with the skill recommendation appended. Claude sees the recommendation as part of its context before it begins processing. This solves the "Claude ignores my skills" problem by making skill selection happen at the infrastructure level, not the prompt level.</p>
+      <p class="relevance">Your superpowers skill system already does something similar with the "using-superpowers" skill. The hook-based approach is more reliable because it's deterministic&mdash;the hook fires on every prompt, period. Consider adding a lightweight keyword matcher as a UserPromptSubmit hook to supplement your current skill loading mechanism.</p>
+      <p class="cont"><a href="skill-activation-hooks.html">Continue: Skill activation implementation &rarr;</a></p>
+    </div>
+
+    <div class="section" id="twelve-hooks">
+      <div class="kicker">Hooks &amp; Configuration</div>
+      <div class="headline">Claude Code now exposes 17 lifecycle events, up from the 12 most developers know about</div>
+      <p>The complete hook event list as of March 2026: SessionStart, UserPromptSubmit, PreToolUse, PermissionRequest, PostToolUse, PostToolUseFailure, SubagentStart, SubagentStop, Stop, PreCompact, Setup, SessionEnd, Notification, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, and WorktreeRemove. The newer events (TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate/Remove) support Agent Teams workflows. Setup hooks run with <code>claude --init</code> or <code>claude --maintenance</code> flags and are ideal for automated onboarding.</p>
+      <p>Four hook handler types: command (shell scripts), HTTP (POST to endpoints), prompt (LLM evaluation), and agent (spawns a subagent with tool access for deep verification). Prompt and agent types are powerful for Stop/SubagentStop hooks where you want intelligent evaluation of whether work is complete, not just a regex check. Agent hooks can grep the codebase before deciding.</p>
+      <p class="relevance">The TeammateIdle and TaskCompleted events are relevant if you adopt Agent Teams. Setup hooks with <code>claude --init</code> could replace your manual session startup routine. The agent-type hook handler is the most underexplored&mdash;spawning a verification subagent in your Stop hook would be more thorough than a prompt check.</p>
+      <p class="cont"><a href="seventeen-lifecycle-hooks.html">Continue: All 17 hook events &rarr;</a></p>
+    </div>
+
+  </div>
+</div>
+
+<div id="dispatch">
+
+  <div class="run-block">
+    <div class="run-header">Scan &mdash; March 31, 2026 &middot; Initial scan &middot; 20 new</div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#acpx-cross-vendor">ACP protocol and ACPX replace PTY scraping for cross-vendor agent orchestration</a></div>
+      <p>ACPX provides structured JSON-RPC communication between Claude Code and 15+ other coding agents (Codex, Gemini, Kiro, etc.), eliminating the lossy PTY scraping that plagues current multi-agent setups. Named sessions persist across restarts.</p>
+      <p class="relevance">The first practical path from single-agent to cross-vendor multi-agent orchestration without losing structured metadata.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#agent-teams-peer">Agent Teams' peer-to-peer messaging is the real differentiator from subagents</a></div>
+      <p>Agent Teams teammates message each other directly and share intermediate artifacts without the lead as intermediary. Subagents are fan-out/fan-in only. This distinction matters for cross-domain features.</p>
+      <p class="relevance">Solves the serialization bottleneck in large full-stack features where backend and frontend agents need to share schemas in real time.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#conductor-to-orchestrator">The conductor-to-orchestrator transition demands decomposition skills, not coding skills</a></div>
+      <p>Addy Osmani's 8-level maturity model at O'Reilly AI CodeCon. Orchestration tier (level 6+) requires spec writing, work decomposition, and output verification&mdash;not better prompting.</p>
+      <p class="relevance">A concrete framework to self-assess your current level and understand what the next capability tier looks like.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#cmux-terminal">cmux is the purpose-built terminal for multi-agent workflows on macOS</a></div>
+      <p>Native macOS terminal using libghostty with per-pane agent status, attention rings, desktop notifications, and embedded WebKit browser. <code>brew install --cask cmux</code>.</p>
+      <p class="relevance">The missing UI layer for running ACPX or Agent Teams&mdash;replaces chaotic multi-tab terminal workflows.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#swarm-diaries">Microsoft's Swarm Diaries: five agents on one codebase exposed the coordination failure modes</a></div>
+      <p>Azure Apps team documented merge conflicts, inconsistent architectural decisions, and cascading test failures from uncoordinated multi-agent work. 3&ndash;5x throughput only on genuinely independent workstreams.</p>
+      <p class="relevance">Production reality check: multi-agent only works with clear file ownership and pre-defined interface contracts.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#anthropic-code-review">Anthropic Code Review dispatches parallel agents with under 1% false positive rate</a></div>
+      <p>Managed multi-agent PR reviewer. Cross-verification between agents. &lt;1% findings marked incorrect. $15&ndash;25/review. Team/Enterprise only&mdash;cannot run locally.</p>
+      <p class="relevance">Answers the question about local usage: you can't. The open-source <code>toriihq/claude-review-action</code> is the free alternative.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#stop-hooks-done-gate">Stop hooks are the missing "done" gate that prevents premature completion</a></div>
+      <p>Stop hooks with exit code 2 force Claude to keep working. Prompt-type hooks evaluate task completion; agent-type hooks can grep the codebase to verify claims.</p>
+      <p class="relevance">The outermost quality gate: prevents Claude from declaring victory with work undone.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#three-gate-pattern">The three-gate pattern (tests + AI review + human approval) is the emerging production standard</a></div>
+      <p>Converging consensus across multiple sources: automated tests (Gate 1), AI code review (Gate 2), human approval (Gate 3). Each gate catches different failure classes.</p>
+      <p class="relevance">You have Gate 1. Adding Gate 2 (a review skill/subagent) is the highest-leverage next step.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#plan-files-repo">Plan files in the repo beat tickets for agentic development</a></div>
+      <p>Violaris's methodology: per-feature plan files in the repo with objective, constraints, dependencies, acceptance criteria. Versioned, diffable, survive session resets.</p>
+      <p class="relevance">Bridges the gap between Wispr Flow voice specs and implementation. The plan file is the missing intermediate artifact.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#spec-driven-dev">Spec-driven development is the matured form of vibe coding</a></div>
+      <p>Converging consensus: brainstorm &rarr; spec &rarr; plan &rarr; implement &rarr; review. Implementation is the cheapest phase. 60&ndash;70% of time on spec/planning produces dramatically better outcomes.</p>
+      <p class="relevance">Formalizes what you're doing intuitively. Separate brainstorm from spec from plan&mdash;don't collapse the phases.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#specweave-tool">SpecWeave adds persistent quality gates across sessions and tools</a></div>
+      <p>Spec-first behavior layer with agent swarms, 70%+ token reduction, TDD enforcement, and JIRA/GitHub sync. <code>npm install -g specweave</code>.</p>
+      <p class="relevance">Solves "unclear when to break work into sessions" with bounded increments and quality gates.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#aapev-pattern">The AAPEV 5-phase pattern prevents agents from jumping to code without thinking</a></div>
+      <p>Assess &rarr; Analyze &rarr; Plan &rarr; Execute &rarr; Validate. 6-layer architecture from the Blueprint repo (53 stars). Each layer reinforces the others.</p>
+      <p class="relevance">Cheap to adopt as the explicit contract in every SKILL.md. Prevents the most expensive failure mode.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#hub-spoke-memory">Hub-and-spoke memory pattern persists architectural decisions across 200+ sessions</a></div>
+      <p>Central index links to topic-specific memory files. Each spoke loaded selectively. "Last verified" dates enable pruning. Zero context loss over 200+ sessions.</p>
+      <p class="relevance">Validates your current memory system. Add "last verified" dates and ensure you're pruning stale entries.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#statusline-backups">StatusLine-based proactive backups catch context before auto-compaction destroys it</a></div>
+      <p>Dual-trigger backup system using token count (50K first, then every 10K) and percentage thresholds (30%, 15%, 5%). Critical: remaining_percentage includes a hidden 33K-token buffer.</p>
+      <p class="relevance">Insurance against surprise compaction on long features. The token-based trigger matters most for 1M context windows.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#workflow-template">runesleo/claude-code-workflow (539 stars) codifies 3 months of daily session management</a></div>
+      <p>Most-starred workflow template. Covers memory management, context engineering, task routing. Manual compact over auto-compact, structured session handoffs, complexity-based model routing.</p>
+      <p class="relevance">Fork and diff against your setup. Session handoff documents and manual compact strategy are the two highest-value patterns.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#http-hooks">HTTP hooks open Claude Code to remote validation services and team-wide policies</a></div>
+      <p>POST event JSON to any endpoint. Non-2xx = non-blocking error. Must return 2xx + deny in body to actually block. Environment variable interpolation with explicit allowlist.</p>
+      <p class="relevance">Relevant for VP Engineering track: centralized policy enforcement across all developers' Claude Code instances.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#model-router">Model router hook auto-switches tier by task complexity with zero API calls</a></div>
+      <p>Keyword/pattern classification routes to Haiku/Sonnet/Opus. SessionStart hook injects rules for sub-agents too. <code>~</code> prefix bypasses. <code>claude plugin marketplace add tzachbon/claude-model-router-hook</code>.</p>
+      <p class="relevance">Direct cost optimization. The sub-agent tier injection prevents subagents from defaulting to Opus for simple searches.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#async-hooks">Async hooks enable non-blocking side effects without slowing the agent</a></div>
+      <p><code>"async": true</code> runs hooks in background. Good for logging, backups, notifications. Not for security blocking or auto-approve.</p>
+      <p class="relevance">Check if your PostToolUse formatters or loggers can be async to reduce latency.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#skill-activation">Skill activation hooks guarantee skill loading by injecting context before Claude thinks</a></div>
+      <p>UserPromptSubmit hook matches keywords against skill catalog and injects recommendations deterministically. Solves "Claude ignores my skills" at infrastructure level.</p>
+      <p class="relevance">More reliable than prompt-level skill activation. Consider adding a keyword matcher hook to supplement your current system.</p>
+    </div>
+
+    <div class="dispatch-entry">
+      <div class="dispatch-headline"><span class="dispatch-label">NEW</span> <a href="#twelve-hooks">Claude Code now exposes 17 lifecycle events, up from the 12 most developers know about</a></div>
+      <p>5 new events for Agent Teams (TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate/Remove). 4 handler types including agent-type hooks that can grep before deciding.</p>
+      <p class="relevance">Agent-type Stop hooks (subagent verifies completion) are the most underexplored capability worth trying.</p>
+    </div>
+
+  </div>
+
+</div>
+
+<footer>
+  The Radar &middot; Last scan: March 31, 2026 &middot; /radar:feedback to refine
+</footer>
+
+</body>
+</html>

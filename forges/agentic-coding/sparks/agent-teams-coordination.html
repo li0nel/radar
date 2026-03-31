@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Agent Teams Coordination Patterns</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Orchestration &middot; March 31, 2026</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">Orchestration</div>
+  <div class="headline">Agent Teams' peer-to-peer messaging enables production coordination patterns</div>
+
+  <p>The critical distinction between subagents and Agent Teams is not the number of agents. It's the communication topology. Subagents use fan-out/fan-in: a parent agent spawns children, each child works independently, each child reports results back to the parent, and the parent synthesizes. The parent is a serialization bottleneck. If the frontend agent discovers that the API contract needs to change, it cannot tell the backend agent directly&mdash;it must report back to the parent, which then relays the message to the backend agent. In a fan-out/fan-in model, every cross-agent communication has double the latency because it routes through the hub.</p>
+
+  <p>Agent Teams use a lead-mate architecture with peer-to-peer messaging. The lead agent creates mates and assigns initial tasks, but mates can message each other directly using <code>sendMessage</code>. When the frontend mate discovers the API contract needs adjustment, it messages the backend mate directly. No round-trip through the lead. The lead is still the orchestrator&mdash;it created the mates, assigned domains, and will synthesize the final result&mdash;but it is not a mandatory relay for all inter-agent communication. This is the architectural difference that matters for production coordination.</p>
+
+  <p>Configuration lives in <code>.claude/teams.yml</code> at the project root. The file declares team members, their roles, their domain boundaries, and their communication permissions. A typical full-stack configuration:</p>
+
+  <pre>team:
+  name: feature-auth-oauth
+  lead:
+    role: architect
+    context: "Overall feature design and integration"
+  mates:
+    backend:
+      role: "Backend engineer"
+      domain: "src/api/**, src/services/**, src/models/**"
+      context: "Express.js API, PostgreSQL, OAuth2 flows"
+      can_message: [frontend, tests]
+    frontend:
+      role: "Frontend engineer"
+      domain: "src/components/**, src/hooks/**, src/pages/**"
+      context: "React 19, TypeScript, TanStack Query"
+      can_message: [backend, tests]
+    tests:
+      role: "Test engineer"
+      domain: "tests/**, src/**/*.test.ts"
+      context: "Vitest, Testing Library, MSW for mocking"
+      can_message: [backend, frontend]
+  worktree:
+    isolation: true
+    base_branch: main</pre>
+
+  <p>The <code>domain</code> field is enforced, not advisory. A mate can only edit files matching its domain globs. This is the single most important configuration decision in the entire file. Get the domain boundaries wrong and you get merge conflicts. Get them right and mates can work in parallel without stepping on each other. The rule is simple: no file should match more than one mate's domain. If <code>src/types/api.ts</code> is needed by both backend and frontend, it must be assigned to exactly one mate (typically the one that defines the types) and the other mate reads it but cannot modify it.</p>
+
+  <p>The worktree isolation model deserves detailed explanation because it's the mechanism that makes parallel work safe. When <code>isolation: true</code> is set, each mate gets its own git worktree branched from the base. The backend mate works in <code>.worktrees/feature-auth-oauth/backend/</code>, the frontend mate in <code>.worktrees/feature-auth-oauth/frontend/</code>, and so on. Each worktree is a full copy of the repository at the branch point, with its own working directory and index. Mates commit to their own branches. When all mates complete, the lead merges the branches.</p>
+
+  <p>This is where most teams encounter their first real failure mode. The merge step is not trivial. If the backend mate changed a shared type definition and the frontend mate was consuming the old version of that type, the merge succeeds (no textual conflict) but the build fails (type mismatch). Worktree isolation prevents git conflicts but does not prevent semantic conflicts. The peer-to-peer messaging exists precisely to prevent this: when the backend mate changes a shared interface, it should message the frontend mate with the new contract before proceeding.</p>
+
+  <p>The practical communication pattern that works is what I'll call notify-on-contract-change. Each mate is responsible for messaging any mate that consumes its outputs whenever those outputs change shape. This is a convention, not something Agent Teams enforces automatically. You encode it in the mate's context field:</p>
+
+  <pre>mates:
+  backend:
+    role: "Backend engineer"
+    domain: "src/api/**, src/services/**"
+    context: |
+      Express.js API, PostgreSQL, OAuth2 flows.
+      CRITICAL: When you change any API endpoint signature,
+      response shape, or error format, immediately message
+      the frontend mate with the new contract before
+      continuing your work.</pre>
+
+  <p>When to use subagents vs. Agent Teams is a decision tree, not a preference. Subagents are correct when: the tasks are genuinely independent (no shared artifacts), each task is small enough to fit in a single agent's context, results don't need to influence each other during execution, and the parent can synthesize results without cross-referencing. Example: "Write unit tests for these five independent utility functions." Five subagents, five test files, no interaction needed. Fan-out, fan-in, done.</p>
+
+  <p>Agent Teams are correct when: tasks span multiple domains that share artifacts (API types, database schemas, configuration files), intermediate results from one domain need to influence work in another domain during execution (not just at the end), and the work is large enough that a single agent's context window cannot hold the full picture. Example: "Implement OAuth login across the API, the React frontend, and the test suite." The API mate defines the endpoints, the frontend mate consumes them, the test mate mocks them&mdash;they need to agree on contracts in real time.</p>
+
+  <p>The wrong choice in each direction has characteristic failure modes. Using subagents when you need Agent Teams produces integration failures at merge time&mdash;each subagent made locally-correct decisions that are globally inconsistent. Using Agent Teams when subagents suffice wastes tokens on coordination overhead and introduces unnecessary complexity&mdash;each <code>sendMessage</code> consumes tokens in both the sender's and receiver's context windows.</p>
+
+  <p>Domain-split strategies determine the success or failure of the entire team. The most common mistake is splitting by layer (one mate for all models, one for all controllers, one for all views) instead of by feature slice. Layer splits guarantee cross-mate dependencies because every feature touches every layer. Feature splits minimize cross-mate communication because each mate owns a vertical slice. The exception is when you're doing a pure refactoring across a single layer&mdash;then a layer split makes sense because the work is genuinely confined to one layer.</p>
+
+  <p>For a typical feature implementation, the recommended split is: one mate per bounded context (backend API for auth, frontend UI for auth, shared types/config), plus one mate for tests. The test mate is almost always worth having as a separate entity because test writing is embarrassingly parallel and tests provide the verification layer for the other mates' work. The test mate receives contracts from the other mates via messages and writes tests against those contracts, catching integration mismatches before the final merge.</p>
+
+  <p>Error recovery in Agent Teams has subtleties that the documentation glosses over. When a mate fails (crashes, exceeds context, or produces output that fails validation), the lead has three options: restart the mate with additional context about what went wrong, reassign the mate's remaining work to another mate or to itself, or abort the entire team and fall back to sequential single-agent work. The choice depends on the failure mode. A crash from context exhaustion means the task was too large for one mate&mdash;splitting the domain further or summarizing intermediate state and restarting is the right response. A semantic failure (mate produced code that doesn't compile or violates contracts) means the mate's context or domain boundaries were wrong&mdash;adjusting the <code>teams.yml</code> and restarting is more productive than retrying with the same configuration.</p>
+
+  <p>The lead agent's context window is the hidden constraint. Every message between mates is also visible to the lead (for coordination purposes), which means the lead's context fills up faster than any individual mate's. For large teams (4+ mates), the lead can hit context limits before any mate does. The mitigation is to keep the lead's role strictly to orchestration&mdash;it should not be doing implementation work. If the lead is also writing code, it's combining orchestration overhead with implementation overhead in the same context window, and it will exhaust context first.</p>
+
+  <p>A production pattern that has emerged from teams using Agent Teams at scale is the checkpoint-merge cycle. Instead of having all mates work to completion and then merging once at the end, the lead periodically (every 30-60 minutes of wall time, or after each major subtask) pauses all mates, merges their current branches into a shared integration branch, runs the build and test suite against the integrated code, and then has each mate pull from the integration branch before continuing. This catches integration failures incrementally instead of discovering them all at the end. It's more expensive (more merges, more build runs) but dramatically reduces the risk of a catastrophic merge failure after hours of parallel work.</p>
+
+  <p>The <code>TeammateIdle</code> hook event fires when a mate completes its assigned work and is waiting for new tasks. This is useful for dynamic work rebalancing: if the backend mate finishes early, the lead can assign it documentation or code review tasks for the frontend mate's output. The <code>TaskCompleted</code> event fires when a specific task (not the entire mate's work) completes, enabling finer-grained orchestration. Both events are recent additions (the 17 lifecycle events documented elsewhere) and are not yet widely used in production configurations.</p>
+
+  <p>One non-obvious constraint: Agent Teams requires Claude Code on all mates. You cannot mix vendors. If your backend is best served by Codex and your frontend by Claude, Agent Teams cannot help&mdash;you need ACPX for cross-vendor orchestration. Agent Teams is Anthropic's first-party multi-agent system and it only speaks Claude. This is the primary reason both Agent Teams and ACPX exist in the ecosystem: they solve different slices of the multi-agent problem.</p>
+
+  <p class="relevance">Start with a two-mate team (implementation + tests) before attempting three or more. The domain boundary definition is the hardest part and the one most likely to cause failures. Validate with one feature, then expand. The peer-to-peer messaging for contract changes is the pattern that differentiates Agent Teams from just running multiple subagents.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="acpx-cross-vendor-orchestration.html">ACP protocol and ACPX replace PTY scraping for cross-vendor agent orchestration</a></p>
+  <p style="text-indent: 0;"><a href="orchestrator-transition.html">Addy Osmani's 8-level framework maps the conductor-to-orchestrator transition</a></p>
+  <p style="text-indent: 0;"><a href="swarm-diaries-lessons.html">Microsoft's Swarm Diaries document the failure modes of uncoordinated multi-agent development</a></p>
+  <p style="text-indent: 0;"><a href="cmux-multi-agent-terminal.html">cmux provides the missing UI layer for multi-agent terminal workflows</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[1] claudelab.net, "Agent Teams: Multi-Agent Coordination in Claude Code," claudelab.net/agent-teams</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[2] FlorianBruniaux/claude-code-ultimate-guide, GitHub repository, "Agent Teams" section</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[3] aifreeapi.com, "Claude Code Agent Teams: Complete Guide to Multi-Agent Development," aifreeapi.com/en/blog/claude-code-agent-teams</p>
+  <p style="text-indent: 0; font-size: 12px; color: #666;">[4] Anthropic Documentation, "Agent Teams," docs.anthropic.com/en/docs/claude-code/agent-teams</p>
+</div>
+
+<footer>
+  <a href="index.html" style="color: #999;">The Radar</a> &middot; Agentic Coding &middot; March 31, 2026
+</footer>
+
+</body>
+</html>

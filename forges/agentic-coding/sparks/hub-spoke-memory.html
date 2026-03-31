@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — Hub-and-Spoke Memory</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; Hub-and-Spoke Memory</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">CONTEXT MANAGEMENT</div>
+  <h2 class="headline">Hub-and-spoke memory pattern persists architectural decisions across 200+ sessions</h2>
+
+  <p>The central problem with long-running AI-assisted projects is not that the agent forgets&mdash;it is that there is no mechanism for remembering that scales. CLAUDE.md handles instructions. Conversation history handles the current session. But architectural decisions, API contracts, deployment conventions, and resolved debates live in a middle ground that neither mechanism serves well. The hub-and-spoke memory pattern fills this gap with a structure that has been validated across 200+ sessions on a complex SaaS project with zero reported context loss.</p>
+
+  <p>The architecture is simple. A central <code>MEMORY.md</code> file (the hub) contains only pointers and brief descriptions&mdash;never substantive content. Each pointer links to a topic-specific memory file (a spoke) that contains the actual decisions, rationale, and context for that topic. The hub stays under the auto-loaded size limit, which means Claude Code reads it automatically at session start. The agent then knows what topics have been recorded and can pull in specific spokes when the current task requires that knowledge.</p>
+
+  <p>A concrete hub looks like this:</p>
+
+<pre>
+# Project Memory Index
+
+## Architecture
+- [Core Architecture](./memory/architecture.md) — service boundaries,
+  data flow, deployment topology. Last verified: 2026-03-28.
+- [API Contracts](./memory/api-contracts.md) — endpoint schemas,
+  versioning policy, breaking change process. Last verified: 2026-03-25.
+
+## Infrastructure
+- [Deployment](./memory/deployment.md) — CI/CD pipeline, environment
+  config, rollback procedures. Last verified: 2026-03-20.
+- [Database](./memory/database.md) — schema conventions, migration
+  process, index strategy. Last verified: 2026-03-22.
+
+## Decisions
+- [Auth Strategy](./memory/auth-strategy.md) — JWT vs session debate,
+  final decision and rationale. Last verified: 2026-03-15.
+- [Error Handling](./memory/error-handling.md) — error taxonomy,
+  response format, logging conventions. Last verified: 2026-03-27.
+</pre>
+
+  <p>The hub is under 200 lines. The agent reads it at session start and immediately knows: the project has documented decisions about architecture, API contracts, deployment, database conventions, auth strategy, and error handling. When the current task touches API contracts, the agent loads <code>./memory/api-contracts.md</code>. When it touches deployment, it loads <code>./memory/deployment.md</code>. The context window only carries what is relevant to the current task.</p>
+
+  <p>A spoke file follows a consistent structure:</p>
+
+<pre>
+# API Contracts
+Last verified: 2026-03-25
+Verified by: Session working on /api/v2/users endpoint
+
+## Versioning Policy
+- URL-based versioning: /api/v1/, /api/v2/
+- New major version only for breaking changes
+- Old versions supported for 6 months after deprecation
+- Deprecation announced via Sunset header
+
+## Response Format
+All endpoints return:
+{
+  "data": { ... },
+  "meta": { "requestId": "...", "timestamp": "..." },
+  "errors": [ { "code": "...", "message": "..." } ]
+}
+
+## Breaking Change Process
+1. RFC document in /docs/rfcs/
+2. Team review (minimum 2 approvals)
+3. Migration guide before implementation
+4. Sunset header added to old version
+5. 6-month deprecation window
+
+## Decisions Log
+- 2026-02-10: Chose URL versioning over header versioning.
+  Rationale: clearer for API consumers, easier to route at
+  load balancer level.
+- 2026-03-01: Standardized error response format. Previous
+  endpoints returned inconsistent error shapes.
+</pre>
+
+  <p>The critical design choices that make this pattern work are organized by topic, not chronology. Chronological memory ("Session 47: decided to use JWT. Session 52: changed error format. Session 58: updated deployment pipeline.") is a journal. It is easy to write and impossible to search. When session 150 needs to know the error format, it must scan through dozens of session entries to find the relevant one, assuming it has not been superseded by a later entry. Topic-organized memory is a reference. The error handling spoke has exactly one current state, updated in place when decisions change.</p>
+
+  <p>The "last verified" date on each spoke is a staleness indicator. Memory goes stale. The auth strategy documented in session 30 may have been partially superseded by changes in session 90 that nobody remembered to update in the spoke. The "last verified" date tells the agent: this information was confirmed accurate as of this date. If the date is old, the agent should verify before relying on it. A spoke with "last verified: 2026-01-15" in a project that has had 50 sessions since January should be treated as potentially stale. A spoke verified yesterday is reliable.</p>
+
+  <p>Stale spoke pruning happens during maintenance sessions. Periodically (every 20-30 sessions, or when a spoke's "last verified" date exceeds 30 days), dedicate a session to memory maintenance. The agent reads each spoke, verifies it against the current codebase, updates or removes outdated information, and refreshes the "last verified" date. This is housekeeping, not glamorous, but without it the memory system degrades from "reliable reference" to "probably accurate, maybe."</p>
+
+  <p>The distinction between CLAUDE.md and memory is crucial and frequently confused. CLAUDE.md contains <strong>instructions</strong>: how the agent should behave, what standards to follow, what tools to use, what patterns to prefer. Memory contains <strong>facts</strong>: what has been decided, what exists, what was tried and rejected. "Always use TDD" is an instruction (CLAUDE.md). "We chose Jest over Vitest because of X, Y, Z" is a memory (spoke). "Run linting before committing" is an instruction. "The CI pipeline runs on GitHub Actions with self-hosted runners" is a memory. Conflating the two causes both files to bloat and neither to serve its purpose well.</p>
+
+  <p>The developer who reported zero context loss across 200+ sessions was working on a complex SaaS platform with multiple services, a React frontend, a Node.js backend, PostgreSQL database, and Redis caching layer. The project had accumulated significant architectural complexity: service boundaries, API versioning, database migration strategies, caching invalidation patterns, authentication flows. Without the hub-and-spoke pattern, each new session would start with partial understanding at best. With the pattern, each session started by reading the hub (automatic, under size limit), then pulling in the 1-3 spokes relevant to the current task. The agent had immediate access to every relevant architectural decision without consuming context on irrelevant topics.</p>
+
+  <p>The anti-patterns are instructive.</p>
+
+  <p><strong>Putting content directly in MEMORY.md.</strong> The hub becomes a monolithic document. It exceeds the auto-load size limit. Now the agent does not read it automatically, which means it does not know what memories exist, which means it cannot pull in relevant spokes. The entire system collapses because the index is too large to index. Keep the hub under 200 lines. If a topic needs more than a two-line description in the hub, that description belongs in the spoke.</p>
+
+  <p><strong>Chronological ordering.</strong> "Session 12 notes. Session 13 notes. Session 14 notes." This is a diary, not a memory system. Finding the current state of any decision requires reading every session entry that might have modified it. This scales linearly with the number of sessions and becomes unusable after 30-40 sessions. Topic organization means the current state is always in one place.</p>
+
+  <p><strong>No pruning.</strong> Memories go stale silently. The database spoke says "we use MySQL" but the project migrated to PostgreSQL forty sessions ago and nobody updated the spoke. The agent now makes decisions based on false information, which is worse than having no memory at all. False memories cause confident wrong answers. Missing memories cause the agent to search and discover the truth. Pruning is not optional.</p>
+
+  <p><strong>Too many spokes.</strong> If you have 30 spoke files, the hub index itself becomes unwieldy and the agent spends tokens scanning the hub to find the right spoke. Aim for 8-15 spokes covering broad topics. "API Contracts" is a good spoke. "The /api/v2/users GET endpoint response shape" is too granular&mdash;it belongs inside the API Contracts spoke.</p>
+
+  <p><strong>No verification workflow.</strong> The "last verified" date is only useful if verification actually happens. Add a verification prompt to your session start routine: "Check if any spokes referenced in this session have a last-verified date older than 30 days. If so, verify them before relying on their content." This takes 2-3 minutes per stale spoke and prevents the false-memory problem.</p>
+
+  <p>Implementation steps for adding hub-and-spoke to an existing project:</p>
+
+<pre>
+1. Create /memory/ directory in project root
+2. Create MEMORY.md in project root (the hub)
+3. Identify 5-10 topic areas where decisions have been made
+4. For each topic, create a spoke file in /memory/
+5. Populate each spoke with current decisions and rationale
+6. Add "Last verified: [today]" to each spoke
+7. Add pointers to all spokes in MEMORY.md
+8. Add to CLAUDE.md: "Read MEMORY.md at session start.
+   Load relevant spokes for the current task.
+   Update spokes when decisions change.
+   Add last-verified date when verifying spoke content."
+9. Schedule memory maintenance every 20-30 sessions
+</pre>
+
+  <p>The pattern works because it respects the fundamental constraints of agentic coding: limited context windows, session boundaries, and the need for information to be both persistent and accessible. The hub is the table of contents that fits in every session. The spokes are the chapters that only load when needed. The "last verified" dates are the freshness indicators that prevent false confidence. Together, they create a memory system that scales with the project rather than against it.</p>
+
+  <p class="relevance">Relevant if you are running more than 10 sessions on a single project and finding that later sessions repeat decisions or contradict earlier ones, or if your CLAUDE.md has grown past 500 lines trying to serve as both instructions and memory.</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="statusline-context-backup.html">StatusLine-based proactive backups catch context before auto-compaction destroys it</a></p>
+  <p style="text-indent: 0;"><a href="workflow-template.html">runesleo/claude-code-workflow codifies 3 months of daily session management patterns</a></p>
+  <p style="text-indent: 0;"><a href="aapev-skill-pattern.html">The AAPEV 5-phase pattern prevents agents from jumping to code without thinking</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="font-size: 11px; text-indent: 0; color: #666;">[1] Hub-and-spoke memory pattern for AI coding sessions &mdash; <a href="https://unmarkdown.com">unmarkdown.com</a> (hub-and-spoke memory article)</p>
+</div>
+
+<footer>
+  <a href="index.html">&larr; Back to Agentic Coding</a>
+</footer>
+
+</body>
+</html>

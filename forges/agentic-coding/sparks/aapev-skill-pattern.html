@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Radar — AAPEV Skill Pattern</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Georgia', serif; background: #f8f6f1; color: #333; line-height: 1.7; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+.nameplate { text-align: center; border-top: 3px double #222; border-bottom: 3px double #222; padding: 10px 0; margin-bottom: 1.25rem; }
+.nameplate h1 { font-size: 20px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.nameplate .edition { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; letter-spacing: 0.06em; margin-top: 4px; }
+.single-col { max-width: 680px; margin: 0 auto; column-count: 1; }
+.kicker { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px; }
+.headline { font-size: 20px; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 8px; }
+p { font-size: 13px; line-height: 1.7; color: #333; text-align: justify; margin-bottom: 0.6rem; }
+p + p { text-indent: 1em; }
+.relevance { font-style: italic; font-size: 12.5px; color: #555; margin-top: 6px; text-indent: 0; text-align: left; }
+.relevance::before { content: '\2192 '; color: #8b4513; }
+a { color: #8b4513; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #8b4513; text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0ece0; padding: 1px 4px; }
+pre { background: #f0ece0; border: 1px solid #ddd; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 0.75rem 0; text-align: left; text-indent: 0; }
+footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 3px double #222; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #999; text-align: center; letter-spacing: 0.04em; }
+@media (max-width: 640px) { body { padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Back to Agentic Coding</a>
+
+<div class="nameplate">
+  <h1>The Radar</h1>
+  <div class="edition">Agentic Coding &middot; AAPEV Skill Pattern</div>
+</div>
+
+<div class="single-col">
+  <div class="kicker">WORKFLOW DESIGN</div>
+  <h2 class="headline">The AAPEV 5-phase pattern prevents agents from jumping to code without thinking</h2>
+
+  <p>The default failure mode of every AI coding agent is premature implementation. You describe a problem; the agent writes code. It skips understanding the existing codebase, skips considering alternative approaches, skips verifying its assumptions about dependencies and interfaces. The AAPEV pattern (Assess, Analyze, Plan, Execute, Validate) from the Aedelon/claude-code-blueprint repository (53 stars) forces a mandatory thinking sequence before any code is written. This is not a suggestion embedded in a system prompt. It is a structured skill architecture where each phase produces artifacts that gate the next phase.</p>
+
+  <p><strong>Phase 1: Assess/Clarify.</strong> The agent reads the request and identifies ambiguities, missing context, and implicit assumptions. It asks clarifying questions before proceeding. In practice, this phase catches the 40% of tasks where the stated requirement is incomplete or contradictory. "Add authentication to the API" is not a specification&mdash;it is a wish. Assess/Clarify forces: which endpoints? What auth mechanism? Token expiry? Refresh flow? Role-based access? The output is a disambiguated problem statement. No code is written. No files are opened for editing. The agent is reading and questioning, nothing more.</p>
+
+  <p><strong>Phase 2: Analyze/Research.</strong> The agent searches the codebase before proposing changes. It reads existing implementations, identifies patterns already in use, checks for prior art. This phase directly combats the hallucination problem&mdash;the agent cannot claim "the codebase uses Express middleware for auth" without actually finding Express middleware in the codebase. The Blueprint repo pairs this phase with Context7 MCP server integration for external documentation verification, which we will address below. The output is a research summary: what exists, what patterns are established, what constraints the existing code imposes. Still no code written.</p>
+
+  <p><strong>Phase 3: Plan/Design.</strong> Given the disambiguated problem (Phase 1) and the codebase understanding (Phase 2), the agent proposes a concrete implementation plan. Files to modify, functions to add, interfaces to change, tests to write. The plan is explicit enough that a senior engineer could review it in under two minutes and catch architectural errors before any code exists. This is where most of the intellectual value lives. A good plan reviewed by a human is worth more than unreviewed code, because the plan is cheap to change and the code is expensive to change.</p>
+
+  <p><strong>Phase 4: Execute/Implement.</strong> Code gets written. Finally. But by this point, the agent has a disambiguated requirement, a researched understanding of the codebase, and an approved plan. The implementation is constrained by the plan rather than improvised from the original prompt. Drift between intent and implementation is minimized because the plan acts as a local spec.</p>
+
+  <p><strong>Phase 5: Validate/Verify.</strong> The agent runs tests, checks for regressions, verifies the implementation against the original requirement. Not "does it compile" but "does it do what was asked, without breaking what existed." The Blueprint repo mandates that validation includes running the test suite, not just writing tests.</p>
+
+  <p>The value of AAPEV is not in any individual phase. It is in the mandatory sequencing. Agents are eager to help. They want to produce code. Every instinct in a language model trained on helpfulness pushes toward immediate action. AAPEV adds friction in exactly the right places&mdash;between understanding and acting, between researching and proposing, between proposing and implementing. Each friction point is an opportunity for the human to intervene before effort is wasted.</p>
+
+  <p>The Blueprint repo embeds AAPEV within a 6-layer architecture that makes the pattern enforceable rather than aspirational.</p>
+
+  <p><strong>Layer 1: CLAUDE.md kernel.</strong> The foundation layer establishes anti-hallucination protocols, confidence levels, and code standards. The anti-hallucination protocol is worth detailing: the agent must express confidence levels (HIGH, MEDIUM, LOW) for claims about the codebase, and LOW-confidence claims trigger mandatory verification via search or MCP before proceeding. This is not just "be careful"&mdash;it is a structured protocol where the agent labels its own uncertainty and the protocol dictates what to do about each level. Combined with Context7 MCP server integration, the agent can verify API documentation, library interfaces, and framework behavior against authoritative sources before making claims.</p>
+
+  <p><strong>Layer 2: Memory.</strong> Persistent cross-session context. The Blueprint uses a structured memory system that survives between Claude Code sessions, storing architectural decisions, established patterns, and known constraints. This feeds into Phase 2 (Analyze/Research)&mdash;the agent does not start from zero each session because the memory layer preserves what was learned in prior sessions.</p>
+
+  <p><strong>Layer 3: Skills.</strong> 32 skills organized across 10 categories. Each skill is a structured template that encodes expert knowledge about a specific task type. A "database migration" skill knows to check for reversibility, test with production-like data, and verify index impacts. A "new API endpoint" skill knows to generate OpenAPI specs, add rate limiting, and include integration tests. Skills are the mechanism by which AAPEV phases produce consistent outputs&mdash;the skill defines what each phase should produce for that task type.</p>
+
+  <p><strong>Layer 4: Agents.</strong> Specialized agents for different domains. The architecture supports routing tasks to agents with domain-specific knowledge&mdash;a frontend agent, a backend agent, a database agent. Each agent carries its own context and skills relevant to its domain. This is less about multi-agent orchestration and more about context specialization: a database agent does not need React component patterns in its context window.</p>
+
+  <p><strong>Layer 5: Security.</strong> 40 allow rules, 38 deny rules, hooks for enforcement, and regex-based secrets detection. The security layer is not an afterthought bolted onto the architecture&mdash;it is a first-class layer that constrains what agents can do. Deny rules prevent agents from modifying security-critical files without explicit approval. The regex secrets detection scans agent output for patterns matching API keys, tokens, and credentials before they reach tool calls. This matters because agents will cheerfully write secrets into source files, commit them to git, and expose them in logs unless mechanically prevented.</p>
+
+  <p><strong>Layer 6: MCP.</strong> Six MCP servers providing external capabilities. The most important for AAPEV is Context7, which provides verified documentation lookup. When Phase 2 (Analyze/Research) needs to verify external library behavior, Context7 provides authoritative documentation rather than relying on the model's training data, which may be outdated or hallucinated. Other MCP servers handle file system operations, git integration, and browser-based research.</p>
+
+  <p>Each layer reinforces the others. The CLAUDE.md kernel (Layer 1) references skills (Layer 3) by name. Skills reference memory (Layer 2) for persistent context. Security (Layer 5) constrains what skills can do. MCP (Layer 6) provides capabilities that skills invoke. The AAPEV pattern threads through all layers: Phase 1 uses the kernel's clarification protocols, Phase 2 uses MCP for research and memory for history, Phase 3 uses skills for plan templates, Phase 4 uses skills for implementation patterns, Phase 5 uses security for verification.</p>
+
+  <p>To implement AAPEV in your own skill files without adopting the full Blueprint:</p>
+
+<pre>
+# SKILL: [task-type].md
+
+## Phase 1: Assess
+- Read the full request
+- List ambiguities and assumptions
+- Ask clarifying questions (do NOT proceed without answers)
+- Output: disambiguated requirement statement
+
+## Phase 2: Analyze
+- Search codebase for related code (Grep, Glob, Read)
+- Identify existing patterns and conventions
+- Check memory for prior decisions on this topic
+- Output: research summary with file references
+
+## Phase 3: Plan
+- List files to create/modify
+- Describe each change at function level
+- Identify test cases needed
+- Output: numbered implementation plan
+
+## Phase 4: Execute
+- Follow the plan from Phase 3 exactly
+- If the plan needs changing, return to Phase 3
+- Write tests alongside implementation
+- Output: completed code changes
+
+## Phase 5: Validate
+- Run test suite
+- Verify requirement is met
+- Check for regressions
+- Output: validation report
+</pre>
+
+  <p>The anti-hallucination protocol deserves specific implementation guidance. In your CLAUDE.md, add a confidence-level system:</p>
+
+<pre>
+## Confidence Protocol
+When making claims about the codebase or external APIs:
+- HIGH confidence: verified via search/read in this session
+- MEDIUM confidence: based on memory from prior session
+- LOW confidence: based on training data, not verified
+
+Actions by confidence level:
+- HIGH: proceed normally
+- MEDIUM: verify via search before acting
+- LOW: MUST verify via Context7 MCP or codebase search
+         before making any changes based on this claim
+</pre>
+
+  <p>This protocol is effective because it maps onto what language models actually do. Models genuinely do have higher confidence about things they have just read versus things recalled from training. Making the confidence explicit forces the agent to categorize its own knowledge state, and the action mapping ensures that low-confidence claims get verified rather than acted upon. It does not eliminate hallucination, but it reduces hallucination-driven implementation errors to the subset where the model is confidently wrong, which is a smaller category.</p>
+
+  <p>The 53-star count on the Blueprint repo undersells its influence. The AAPEV pattern has propagated through the Claude Code community via CLAUDE.md files that reference the pattern without attribution. The 6-layer architecture has informed multiple other scaffolding projects. The repo is worth studying not as a plug-and-play solution but as an architecture reference for how to make agent workflows rigorous without making them brittle.</p>
+
+  <p class="relevance">Relevant if your agents produce technically-correct code that misses the actual requirement, or if you need a structured methodology for skill files that goes beyond "here are some rules."</p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Related</h3>
+  <p style="text-indent: 0;"><a href="specweave-evaluation.html">SpecWeave adds persistent quality gates across sessions and tools</a></p>
+  <p style="text-indent: 0;"><a href="hub-spoke-memory.html">Hub-and-spoke memory pattern persists architectural decisions across 200+ sessions</a></p>
+  <p style="text-indent: 0;"><a href="workflow-template.html">runesleo/claude-code-workflow codifies 3 months of daily session management patterns</a></p>
+
+  <h3 style="font-size: 13px; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem;">Sources</h3>
+  <p style="font-size: 11px; text-indent: 0; color: #666;">[1] Aedelon/claude-code-blueprint &mdash; <a href="https://github.com/Aedelon/claude-code-blueprint">github.com/Aedelon/claude-code-blueprint</a></p>
+</div>
+
+<footer>
+  <a href="index.html">&larr; Back to Agentic Coding</a>
+</footer>
+
+</body>
+</html>
